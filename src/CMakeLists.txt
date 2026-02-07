@@ -1,6 +1,3 @@
-# Project
-project(libnumakit VERSION 0.1.0 LANGUAGES C)
-
 # Find Doxygen
 find_package(Doxygen)
 if(DOXYGEN_FOUND)
@@ -12,6 +9,3 @@ if(DOXYGEN_FOUND)
         COMMENT "Generating API documentation with Doxygen"
         VERBATIM)
 endif()
-
-# Find CTest
-find_package(CTest REQUIRED)
