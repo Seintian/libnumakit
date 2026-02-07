@@ -1,0 +1,58 @@
+name: Build & Unit Test
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  build:
+    name: ${{ matrix.compiler }} (${{ matrix.build_type }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        build_type: [Debug, Release]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libhwloc-dev valgrind ninja-build
+
+      - name: Configure CMake
+        run: |
+          # Set compiler based on matrix
+          if [ "${{ matrix.compiler }}" = "gcc" ]; then
+            export CC=gcc
+            export CXX=g++
+          else
+            export CC=clang
+            export CXX=clang++
+          fi
+
+          cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DNKIT_BUILD_TESTS=ON \
+          -GNinja
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run Unit Tests
+        working-directory: build
+        run: ctest --output-on-failure -R unit_
+
+      - name: Memory Leak Check (Valgrind)
+        if: matrix.build_type == 'Debug'
+        working-directory: build
+        # We only run Valgrind on unit tests, not hardware integration tests
+        run: |
+          valgrind --leak-check=full \
+          --error-exitcode=1 \
+          --track-origins=yes \
+          ./tests/nkit_unit_tests

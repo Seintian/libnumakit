@@ -1,0 +1,63 @@
+---
+# Base style on LLVM, but we will override specific C conventions
+BasedOnStyle: LLVM
+
+# Language Standard
+Language: Cpp
+Standard: Latest
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+
+# Line Length (Modern screens are wide; 80 is too restrictive for descriptive variable names)
+ColumnLimit: 100
+
+# Pointer Alignment
+# We use "int* ptr" (Left) instead of "int *ptr" (Right).
+# Why? It emphasizes that the type is "pointer to int".
+PointerAlignment: Left
+
+# Braces & Wrapping
+# Use "One True Brace Style" (K&R/Linux-ish):
+#   if (condition) {
+#       ...
+#   }
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+# Spacing
+SpaceAfterCStyleCast: true        # (void*) ptr -> (void*) ptr
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# Macros
+# Align the backslashes in multi-line macros to the far right
+AlignEscapedNewlines: Right
+
+# Includes
+# Sorts headers: System (<...>) first, then Local ("...")
+SortIncludes: true
+IncludeBlocks: Regroup
+
+# Alignment
+# Align arguments in function calls if they break across lines
+AlignAfterOpenBracket: Align
+# Do NOT align consecutive assignments (creates diff noise when adding variables)
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+
+# Switch Statements
+IndentCaseLabels: true
+
+# Documentation Comments
+# Reflow comments to fit the column limit
+ReflowComments: true
+...

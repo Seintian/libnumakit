@@ -1,0 +1,83 @@
+# Doxyfile 1.9.x
+
+#---------------------------------------------------------------------------
+# Project related configuration options
+#---------------------------------------------------------------------------
+PROJECT_NAME           = "libnumakit"
+PROJECT_NUMBER         = @PROJECT_VERSION@
+PROJECT_BRIEF          = "High-Performance NUMA-Aware C Toolkit"
+PROJECT_LOGO           = 
+
+# output directory
+OUTPUT_DIRECTORY       = @CMAKE_CURRENT_BINARY_DIR@/docs
+
+# Language
+OUTPUT_LANGUAGE        = English
+
+#---------------------------------------------------------------------------
+# Build related configuration options
+#---------------------------------------------------------------------------
+# Extract all entities (even if undocumented) so we see what's missing
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO   # Hide internal functions (static/_nkit_)
+EXTRACT_STATIC         = NO
+
+# recursive search
+RECURSIVE              = YES
+
+# local includes
+# strip the path so docs show "numakit/memory.h" not "/home/user/..."
+STRIP_FROM_PATH        = @PROJECT_SOURCE_DIR@/include
+STRIP_FROM_INC_PATH    = @PROJECT_SOURCE_DIR@/include
+
+#---------------------------------------------------------------------------
+# Configuration options related to the input files
+#---------------------------------------------------------------------------
+# Where to look for source files
+INPUT                  = @PROJECT_SOURCE_DIR@/include/numakit \
+                         @PROJECT_SOURCE_DIR@/docs/design \
+                         @PROJECT_SOURCE_DIR@/README.md
+
+# File patterns
+FILE_PATTERNS          = *.h *.md
+
+# Exclude internal headers if they accidentally get picked up
+EXCLUDE_PATTERNS       = */internal.h
+
+# Use the README as the main page
+USE_MDFILE_AS_MAINPAGE = @PROJECT_SOURCE_DIR@/README.md
+
+#---------------------------------------------------------------------------
+# Configuration options related to the HTML output
+#---------------------------------------------------------------------------
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_FILE_EXTENSION    = .html
+
+# Modern Look & Feel
+HTML_COLORSTYLE_HUE    = 220  # Blue theme
+HTML_COLORSTYLE_SAT    = 100
+HTML_COLORSTYLE_GAMMA  = 80
+
+# Sidebar/Tree view for navigation
+GENERATE_TREEVIEW      = YES
+TREEVIEW_WIDTH         = 250
+
+# Search engine (client-side JS)
+SEARCHENGINE           = YES
+SERVER_BASED_SEARCH    = NO
+
+#---------------------------------------------------------------------------
+# Configuration options related to the LaTeX output
+#---------------------------------------------------------------------------
+GENERATE_LATEX         = NO  # Usually not needed for web docs
+
+#---------------------------------------------------------------------------
+# Preprocessor (Critical for C macros)
+#---------------------------------------------------------------------------
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = NO
+# If you use specific attribute macros (like __attribute__((...))), define them here to confuse Doxygen less:
+PREDEFINED             = "NKIT_API=" \
+                         "NKIT_DEPRECATED="

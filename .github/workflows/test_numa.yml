@@ -1,0 +1,61 @@
+name: NUMA Emulation Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  qemu-numa:
+    name: QEMU (2 Nodes, 4 CPUs)
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install QEMU & Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qemu-system-x86 libhwloc-dev make gcc-multilib
+
+    - name: Build Library (Static)
+      # We build statically so the binary runs easily inside the QEMU initrd
+      run: |
+        cmake -B build_static -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DNKIT_BUILD_TESTS=ON
+        cmake --build build_static
+
+    - name: Create Minimal Initramfs
+      run: |
+        # Create a directory structure for our mini-linux
+        mkdir -p initramfs/{bin,dev,proc,sys,etc,lib}
+
+        # Copy our built test binary
+        cp build_static/tests/nkit_integration_tests initramfs/init
+
+        # Pack it into a cpio archive (initramfs format)
+        cd initramfs
+        find . | cpio -o -H newc | gzip > ../initramfs.gz
+
+    - name: Run QEMU with NUMA Topology
+      timeout-minutes: 5
+      run: |
+        # Boot QEMU with:
+        # - kernel: use the host kernel (trick to save downloading one)
+        # - initrd: our minimal filesystem containing the test binary
+        # - numa: Split 4GB RAM into 2 nodes (2GB each)
+        # - smp: 4 CPUs, split into 2 sockets
+
+        qemu-system-x86_64 \
+          -kernel /boot/vmlinuz-$(uname -r) \
+          -initrd initramfs.gz \
+          -m 4G \
+          -smp 4,sockets=2,cores=2,threads=1 \
+          -object memory-backend-ram,id=mem0,size=2G \
+          -object memory-backend-ram,id=mem1,size=2G \
+          -numa node,nodeid=0,cpus=0-1,memdev=mem0 \
+          -numa node,nodeid=1,cpus=2-3,memdev=mem1 \
+          -nographic \
+          -append "console=ttyS0 quiet panic=-1" \
+          -no-reboot
