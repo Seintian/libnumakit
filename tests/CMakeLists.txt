@@ -4,13 +4,13 @@ file(GLOB UNIT_SOURCES "unit/*.c")
 
 if(UNIT_SOURCES)
     add_executable(nkit_unit_tests ${UNIT_SOURCES})
-    
+
     # Link against the main library
     target_link_libraries(nkit_unit_tests PRIVATE numakit)
-    
+
     # Register with CTest
     add_test(NAME unit_tests COMMAND nkit_unit_tests)
-    
+
     # Verify we can find the headers
     target_include_directories(nkit_unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
 endif()

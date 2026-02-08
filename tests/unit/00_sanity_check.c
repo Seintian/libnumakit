@@ -6,8 +6,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-// When we have the library headers, we will include them:
-// #include <numakit/numakit.h>
+#include <numakit/numakit.h>
 
 int main(void) {
     printf("[UNIT] Sanity check started...\n");

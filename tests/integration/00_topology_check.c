@@ -5,7 +5,7 @@
 
 #include <stdio.h>
 
-// #include <numakit/numakit.h>
+#include <numakit/numakit.h>
 
 int main(void) {
     printf("[INTEGRATION] Topology check started...\n");
