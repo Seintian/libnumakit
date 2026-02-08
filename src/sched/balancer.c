@@ -95,7 +95,7 @@ nkit_advice_e nkit_balancer_check(void) {
     long long count_instr = 0;
 
     if (read(t_fd_miss, &count_miss, sizeof(long long)) == -1) return NKIT_ADVISE_ERROR;
-    read(t_fd_instr, &count_instr, sizeof(long long)); // Best effort
+    if (read(t_fd_instr, &count_instr, sizeof(long long)) == -1) return NKIT_ADVISE_ERROR;
 
     // 3. Close FDs (Cleanup)
     close(t_fd_miss);

@@ -2,10 +2,14 @@
 #define _NKIT_INTERNAL_H
 
 #include "numakit/structs/ring_buffer.h"
-#include "numakit/sync.h"
 #include <hwloc.h>
 #include <stdatomic.h>
 #include <stdbool.h>
+
+typedef struct nkit_mailbox_t {
+    nkit_ring_t* ring;      // The storage (Hugepage backed)
+    char pad[64];           // Padding to ensure cache line alignment
+} nkit_mailbox_t;
 
 /**
  * @brief Global internal state of the library.
@@ -22,10 +26,7 @@ typedef struct {
     atomic_int active_threads;  // Track running threads
 
     // Communication
-    struct {
-        nkit_ring_t* ring;      // The storage (Hugepage backed)
-        nkit_mcs_lock_t lock;   // The guardian (MCS Lock)
-    }* mailboxes;               // Array of mailboxes (one per node)
+    nkit_mailbox_t** mailboxes; // Array of mailboxes (one per node)
 
     // Configuration
     double balancer_threshold_mpki; // Misses Per Kilo-Instruction threshold

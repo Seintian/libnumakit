@@ -1,11 +1,15 @@
 #include <numakit/numakit.h>
 #include "internal.h"
+
+#include <numa.h>
 #include <stddef.h>
 #include <hwloc.h>
 #include <stdatomic.h>
 
 // Global Context Definition
 nkit_context_t g_nkit_ctx = {0};
+
+#define DEFAULT_MPKI 50.0
 
 int nkit_init(void) {
     // 1. Thread-safe "Run Once" check
@@ -32,20 +36,23 @@ int nkit_init(void) {
     }
 
     // 5. Initialize Mailboxes (One per Node)
-    g_nkit_ctx.mailboxes = malloc(sizeof(g_nkit_ctx.mailboxes[0]) * g_nkit_ctx.num_nodes);
+    g_nkit_ctx.mailboxes = malloc(sizeof(nkit_mailbox_t*) * g_nkit_ctx.num_nodes);
+
     if (g_nkit_ctx.mailboxes) {
         for (int i = 0; i < g_nkit_ctx.num_nodes; i++) {
-            // Create a 4096-slot ring on the specific NUMA node
-            // This ensures the Consumer (worker on that node) has local access.
-            g_nkit_ctx.mailboxes[i].ring = nkit_ring_create(i, 4096);
+            // ALLOCATE ON NODE 'i'
+            // This ensures the lock variable is local to the worker on that node.
+            g_nkit_ctx.mailboxes[i] = numa_alloc_onnode(sizeof(nkit_mailbox_t), i);
 
-            // Initialize the MCS lock to protect this ring
-            nkit_mcs_init(&g_nkit_ctx.mailboxes[i].lock);
+            if (g_nkit_ctx.mailboxes[i]) {
+                // Initialize Ring (already hugepage backed on Node i)
+                g_nkit_ctx.mailboxes[i]->ring = nkit_ring_create(i, 4096);
+            }
         }
     }
 
     // 6. Set Defaults
-    g_nkit_ctx.balancer_threshold_mpki = 50.0; // Default: 5% miss rate is "bad"
+    g_nkit_ctx.balancer_threshold_mpki = DEFAULT_MPKI; // Default: 5% miss rate is "bad"
 
     // 7. Cache key metrics (to avoid querying hwloc repeatedly)
     g_nkit_ctx.num_nodes = hwloc_get_nbobjs_by_type(g_nkit_ctx.topo, HWLOC_OBJ_NUMANODE);
@@ -63,7 +70,12 @@ void nkit_teardown(void) {
     // Cleanup Mailboxes
     if (g_nkit_ctx.mailboxes) {
         for (int i = 0; i < g_nkit_ctx.num_nodes; i++) {
-            nkit_ring_free(g_nkit_ctx.mailboxes[i].ring);
+            if (g_nkit_ctx.mailboxes[i]) {
+                nkit_ring_free(g_nkit_ctx.mailboxes[i]->ring);
+
+                // Free the NUMA-local memory
+                numa_free(g_nkit_ctx.mailboxes[i], sizeof(nkit_mailbox_t));
+            }
         }
         free(g_nkit_ctx.mailboxes);
     }

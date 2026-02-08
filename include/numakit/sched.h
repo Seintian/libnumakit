@@ -95,10 +95,13 @@ int nkit_current_cpu(void);
 int nkit_send(int target_node, void* data);
 
 /**
- * @brief Process all messages pending for the current node.
- * Call this inside your worker loop.
+ * @brief Process pending messages for the CURRENT node.
+ * Lock-Free Consumer.
+ * @param handler Function to call for each message.
+ * @param limit Maximum number of messages to process (0 = unlimited, dangerous!).
+ * @return Number of messages actually processed.
  */
-size_t nkit_process_local(void (*handler)(void*));
+size_t nkit_process_local(void (*handler)(void*), size_t limit);
 
 #ifdef __cplusplus
 }
