@@ -31,8 +31,10 @@ cat > user-data <<EOF
 package_update: true
 packages:
   - libnuma1
+  - numactl
   - libhwloc15
   - libatomic1
+  - cmake
 
 mounts:
   - [ host0, /mnt, 9p, "trans=virtio,version=9p2000.L,cache=none" ]
@@ -56,8 +58,6 @@ cloud-localds "$SEED_ISO" user-data
 echo "Booting QEMU with NUMA Topology (2 Nodes, 4 CPUs)..."
 
 # 5. Boot VM (Modern Syntax)
-# -object memory-backend-ram: Creates a block of RAM
-# -numa node,memdev=...: Attaches that block to a specific NUMA node
 qemu-system-x86_64 \
     -name "numa-test-vm" \
     $QEMU_ACCEL \
