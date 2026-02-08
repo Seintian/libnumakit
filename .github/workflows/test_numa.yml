@@ -18,7 +18,7 @@ jobs:
     - name: Install QEMU & Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y qemu-system-x86 make gcc-multilib
+        sudo apt-get install -y qemu-system-x86 make gcc-multilib libnuma-dev
 
     - name: Build Minimal Static hwloc
       id: hwloc

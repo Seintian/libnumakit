@@ -22,7 +22,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libhwloc-dev valgrind ninja-build
+          sudo apt-get install -y libhwloc-dev libnuma-dev valgrind ninja-build
 
       - name: Configure CMake
         run: |
