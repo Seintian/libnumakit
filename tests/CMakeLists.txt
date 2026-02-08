@@ -29,10 +29,9 @@ if(INTEGRATION_SOURCES)
     add_test(NAME integration_tests COMMAND nkit_integration_tests)
 
     # Note: On the QEMU CI, this binary is copied into the initramfs.
-    # On a local dev machine, it runs directly on the host.
 endif()
 
-# 3. HWLOC Tests
+# 3. HWLOC Sanity Tests (Directly using hwloc headers)
 # ------------------------------------------------------------------------------
 file(GLOB HWLOC_SOURCES "hwloc/*.c")
 
@@ -42,10 +41,12 @@ if(HWLOC_SOURCES)
     # Link against the main library
     target_link_libraries(nkit_hwloc_tests PRIVATE numakit)
 
+    # CRITICAL FIX: Link PkgConfig::HWLOC so this test can find <hwloc.h>
+    target_link_libraries(nkit_hwloc_tests PRIVATE PkgConfig::HWLOC)
+
     # Register with CTest
     add_test(NAME hwloc_tests COMMAND nkit_hwloc_tests)
 
     # Verify we can find the headers
     target_include_directories(nkit_hwloc_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
 endif()
-
