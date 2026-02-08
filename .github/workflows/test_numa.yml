@@ -23,7 +23,12 @@ jobs:
     - name: Build Library (Static)
       # We build statically so the binary runs easily inside the QEMU initrd
       run: |
-        cmake -B build_static -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DNKIT_BUILD_TESTS=ON
+        cmake -B build_static \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DNKIT_BUILD_TESTS=ON \
+          -DCMAKE_EXE_LINKER_FLAGS="-static"
+
         cmake --build build_static
 
     - name: Create Minimal Initramfs
@@ -33,6 +38,7 @@ jobs:
 
         # Copy our built test binary
         cp build_static/bin/nkit_integration_tests initramfs/init
+        chmod +x initramfs/init
 
         # Pack it into a cpio archive (initramfs format)
         cd initramfs
