@@ -21,7 +21,7 @@ endif()
 
 # 5. Global Dependencies (Find hwloc here so we fail early if missing)
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(HWLOC REQUIRED hwloc)
+pkg_check_modules(HWLOC REQUIRED IMPORTED_TARGET hwloc)
 if(NOT HWLOC_FOUND)
     message(FATAL_ERROR "hwloc library not found! Please install libhwloc-dev.")
 endif()

@@ -20,7 +20,7 @@ target_include_directories(numakit
 # 4. Link Dependencies
 # Link hwloc privately (users of libnumakit don't need to know we use hwloc internally)
 # Link numa (for mbind)
-target_link_libraries(numakit PRIVATE ${HWLOC_LIBRARIES} numa)
+target_link_libraries(numakit PRIVATE PkgConfig::HWLOC numa)
 target_include_directories(numakit PRIVATE ${HWLOC_INCLUDE_DIRS})
 
 # 5. Compilation Features
