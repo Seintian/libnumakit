@@ -31,3 +31,7 @@ build/
 build_*/
 bin/
 lib/
+
+# Install Artifacts
+install*/
+install_*/

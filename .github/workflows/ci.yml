@@ -1,0 +1,63 @@
+name: LibNumaKit CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  # -----------------------------------------------------------------------------
+  # Job 1: UMA Environment (Native)
+  # -----------------------------------------------------------------------------
+  test-uma:
+    name: Test UMA (Native)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libnuma-dev libhwloc-dev ninja-build
+
+    - name: Configure & Build
+      run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
+
+    - name: Compile
+      run: cmake --build build
+
+    - name: Run Tests
+      run: |
+        cd build
+        ctest --output-on-failure
+
+  # -----------------------------------------------------------------------------
+  # Job 2: NUMA Environment (QEMU Emulation)
+  # -----------------------------------------------------------------------------
+  test-numa:
+    name: Test NUMA (QEMU)
+    runs-on: ubuntu-latest
+    # Enable hardware acceleration for QEMU
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Dependencies (Host)
+      # EXPLICITLY install QEMU and Cloud Utils here
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libnuma-dev libhwloc-dev ninja-build \
+          qemu-system-x86 qemu-utils cloud-image-utils
+
+    - name: Build (Host)
+      # Build on host for speed, then share with VM
+      run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
+
+    - name: Compile
+      run: cmake --build build
+
+    - name: Run NUMA Verification
+      run: |
+        chmod +x tests/qemu/run_numa_test.sh
+        ./tests/qemu/run_numa_test.sh
