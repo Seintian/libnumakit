@@ -32,7 +32,7 @@ jobs:
         mkdir -p initramfs/{bin,dev,proc,sys,etc,lib}
 
         # Copy our built test binary
-        cp build_static/tests/nkit_integration_tests initramfs/init
+        cp build_static/bin/nkit_integration_tests initramfs/init
 
         # Pack it into a cpio archive (initramfs format)
         cd initramfs

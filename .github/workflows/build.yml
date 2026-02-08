@@ -55,4 +55,4 @@ jobs:
           valgrind --leak-check=full \
           --error-exitcode=1 \
           --track-origins=yes \
-          ./tests/nkit_unit_tests
+          ./bin/nkit_unit_tests
