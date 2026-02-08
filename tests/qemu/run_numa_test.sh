@@ -20,14 +20,12 @@ if [ -e /dev/kvm ] && sudo chmod 666 /dev/kvm 2>/dev/null; then
     QEMU_CPU="-cpu host"
     QEMU_ACCEL="-enable-kvm"
 else
-    echo "WARNING: KVM not found or permission denied. Using Software Emulation (Slow)."
-    # 'max' is the best software CPU model; 'host' crashes TCG.
-    QEMU_CPU="-cpu max" 
+    echo "WARNING: KVM not found. Using Software Emulation (Slow)."
+    QEMU_CPU="-cpu max"
     QEMU_ACCEL=""
 fi
 
-# 3. Generate Cloud-Init Config (Standard 2-space YAML)
-# Note: $? is escaped as \$? to prevent expansion during 'cat'
+# 3. Generate Cloud-Init Config
 cat > user-data <<EOF
 #cloud-config
 package_update: true
@@ -48,7 +46,6 @@ runcmd:
   - echo "------------------------------------------"
   - cd /mnt/build
   - export CTEST_OUTPUT_ON_FAILURE=1
-  # Run tests and save exit code to a file
   - ctest > /mnt/qemu_test.log 2>&1; echo \$? > /mnt/qemu_exit_code
   - poweroff
 EOF
@@ -58,7 +55,9 @@ cloud-localds "$SEED_ISO" user-data
 
 echo "Booting QEMU with NUMA Topology (2 Nodes, 4 CPUs)..."
 
-# 5. Boot VM
+# 5. Boot VM (Modern Syntax)
+# -object memory-backend-ram: Creates a block of RAM
+# -numa node,memdev=...: Attaches that block to a specific NUMA node
 qemu-system-x86_64 \
     -name "numa-test-vm" \
     $QEMU_ACCEL \
@@ -66,8 +65,10 @@ qemu-system-x86_64 \
     -m 4G \
     -smp 4 \
     -nographic \
-    -numa node,nodeid=0,cpus=0-1,mem=2G \
-    -numa node,nodeid=1,cpus=2-3,mem=2G \
+    -object memory-backend-ram,id=mem0,size=2G \
+    -object memory-backend-ram,id=mem1,size=2G \
+    -numa node,nodeid=0,cpus=0-1,memdev=mem0 \
+    -numa node,nodeid=1,cpus=2-3,memdev=mem1 \
     -drive "file=$IMG_FILE,format=qcow2" \
     -drive "file=$SEED_ISO,format=raw,media=cdrom" \
     -virtfs local,path="$SHARED_DIR",mount_tag=host0,security_model=mapped,id=host0 \
