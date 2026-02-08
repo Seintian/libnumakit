@@ -8,6 +8,7 @@ extern "C" {
 #include "memory.h"
 #include "sched.h"
 #include "sync.h"
+#include "structs/ring_buffer.h"
 
 // Versioning
 #define NKIT_VERSION_MAJOR 0

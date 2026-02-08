@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/syscall.h>
 
 // Internal struct to pass data to the thread
 typedef struct {
@@ -49,7 +50,7 @@ static int _apply_policy(nkit_thread_policy_t policy) {
 
 // The Trampoline: Sets affinity -> Runs User Code -> Decrements Counter
 static void* _nkit_thread_wrapper(void* arg) {
-    nkit_trampoline_args_t* args = (nkit_trampoline_args_t*)arg;
+    nkit_trampoline_args_t* args = (nkit_trampoline_args_t*) arg;
 
     // 1. Set Affinity
     _apply_policy(args->policy);
@@ -96,4 +97,21 @@ void nkit_thread_join_all(void) {
     while (atomic_load(&g_nkit_ctx.active_threads) > 0) {
         usleep(1000); // Sleep 1ms
     }
+}
+
+int nkit_current_node(void) {
+    unsigned int cpu, node;
+    // SYS_getcpu fills both CPU and Node. We pass NULL for tcache.
+    if (syscall(SYS_getcpu, &cpu, &node, NULL) == 0) {
+        return (int) node;
+    }
+    return -1;
+}
+
+int nkit_current_cpu(void) {
+    unsigned int cpu, node;
+    if (syscall(SYS_getcpu, &cpu, &node, NULL) == 0) {
+        return (int) cpu;
+    }
+    return -1;
 }

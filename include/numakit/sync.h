@@ -46,7 +46,7 @@ void nkit_mcs_unlock(nkit_mcs_lock_t* lock, nkit_mcs_node_t* node);
 /**
  * @brief Reader-Writer Spinlock (Writer Preferred).
  * optimized for high-contention read scenarios.
- * * Layout:
+ * Layout:
  * - Bit 0: Writer Active (Exclusive)
  * - Bit 1: Writer Waiting (Blocks new readers)
  * - Bits 2-31: Reader Count

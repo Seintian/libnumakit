@@ -31,7 +31,23 @@ int nkit_init(void) {
         return -1;
     }
 
-    // 5. Cache key metrics (to avoid querying hwloc repeatedly)
+    // 5. Initialize Mailboxes (One per Node)
+    g_nkit_ctx.mailboxes = malloc(sizeof(g_nkit_ctx.mailboxes[0]) * g_nkit_ctx.num_nodes);
+    if (g_nkit_ctx.mailboxes) {
+        for (int i = 0; i < g_nkit_ctx.num_nodes; i++) {
+            // Create a 4096-slot ring on the specific NUMA node
+            // This ensures the Consumer (worker on that node) has local access.
+            g_nkit_ctx.mailboxes[i].ring = nkit_ring_create(i, 4096);
+
+            // Initialize the MCS lock to protect this ring
+            nkit_mcs_init(&g_nkit_ctx.mailboxes[i].lock);
+        }
+    }
+
+    // 6. Set Defaults
+    g_nkit_ctx.balancer_threshold_mpki = 50.0; // Default: 5% miss rate is "bad"
+
+    // 7. Cache key metrics (to avoid querying hwloc repeatedly)
     g_nkit_ctx.num_nodes = hwloc_get_nbobjs_by_type(g_nkit_ctx.topo, HWLOC_OBJ_NUMANODE);
     g_nkit_ctx.num_pus   = hwloc_get_nbobjs_by_type(g_nkit_ctx.topo, HWLOC_OBJ_PU);
 
@@ -44,6 +60,14 @@ int nkit_init(void) {
 }
 
 void nkit_teardown(void) {
+    // Cleanup Mailboxes
+    if (g_nkit_ctx.mailboxes) {
+        for (int i = 0; i < g_nkit_ctx.num_nodes; i++) {
+            nkit_ring_free(g_nkit_ctx.mailboxes[i].ring);
+        }
+        free(g_nkit_ctx.mailboxes);
+    }
+
     bool expected = true;
     if (atomic_compare_exchange_strong(&g_nkit_ctx.initialized, &expected, false)) {
         hwloc_topology_destroy(g_nkit_ctx.topo);
