@@ -5,6 +5,10 @@
 extern "C" {
 #endif
 
+#include "memory.h"
+#include "sched.h"
+#include "sync.h"
+
 // Versioning
 #define NKIT_VERSION_MAJOR 0
 #define NKIT_VERSION_MINOR 1
@@ -14,7 +18,7 @@ extern "C" {
  * @brief Initialize the libnumakit library.
  * Detects topology and sets up internal structures.
  * Must be called before any other function.
- * * @return 0 on success, -1 on failure.
+ * @return 0 on success, -1 on failure.
  */
 int nkit_init(void);
 

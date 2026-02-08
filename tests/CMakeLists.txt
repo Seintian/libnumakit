@@ -31,3 +31,21 @@ if(INTEGRATION_SOURCES)
     # Note: On the QEMU CI, this binary is copied into the initramfs.
     # On a local dev machine, it runs directly on the host.
 endif()
+
+# 3. HWLOC Tests
+# ------------------------------------------------------------------------------
+file(GLOB HWLOC_SOURCES "hwloc/*.c")
+
+if(HWLOC_SOURCES)
+    add_executable(nkit_hwloc_tests ${HWLOC_SOURCES})
+
+    # Link against the main library
+    target_link_libraries(nkit_hwloc_tests PRIVATE numakit)
+
+    # Register with CTest
+    add_test(NAME hwloc_tests COMMAND nkit_hwloc_tests)
+
+    # Verify we can find the headers
+    target_include_directories(nkit_hwloc_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+endif()
+

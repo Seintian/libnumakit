@@ -4,15 +4,21 @@
  */
 
 #include <stdio.h>
-
 #include <numakit/numakit.h>
 
 int main(void) {
     printf("[INTEGRATION] Topology check started...\n");
 
-    // TODO: verification logic will go here
-    // int node_count = nkit_get_node_count();
-    // if (node_count < 1) return 1;
+    // 1. Initialize Topology
+    if (nkit_init() != 0) {
+        fprintf(stderr, "Failed to initialize libnumakit\n");
+        return 1;
+    }
+
+    printf("libnumakit initialized successfully.\n");
+
+    // 2. Cleanup
+    nkit_teardown();
 
     printf("[INTEGRATION] Topology check passed.\n");
     return 0;
