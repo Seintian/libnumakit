@@ -36,7 +36,7 @@ int nkit_init(void) {
     }
 
     // 5. Initialize Mailboxes (One per Node)
-    g_nkit_ctx.mailboxes = malloc(sizeof(nkit_mailbox_t*) * g_nkit_ctx.num_nodes);
+    g_nkit_ctx.mailboxes = calloc(g_nkit_ctx.num_nodes, sizeof(nkit_mailbox_t*));
 
     if (g_nkit_ctx.mailboxes) {
         for (int i = 0; i < g_nkit_ctx.num_nodes; i++) {
