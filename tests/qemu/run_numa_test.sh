@@ -5,7 +5,7 @@ set -e
 IMG_URL="https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
 IMG_FILE="ubuntu-22.04.img"
 SEED_ISO="seed.iso"
-SHARED_DIR=$(pwd)
+SHARED_DIR=$(pwd) # This is the absolute path on the HOST (e.g., /home/runner/work/...)
 
 # 1. Download Image
 if [ ! -f "$IMG_FILE" ]; then
@@ -26,6 +26,7 @@ else
 fi
 
 # 3. Generate Cloud-Init Config
+# We create a symlink so the VM sees the files at the exact same path as the Host.
 cat > user-data <<EOF
 #cloud-config
 package_update: true
@@ -43,10 +44,26 @@ runcmd:
   - echo "=========================================="
   - echo "   RUNNING TESTS IN NUMA VM (QEMU)"
   - echo "=========================================="
+  # 1. Recreate Host Directory Structure
+  # We strip the project folder name to get the parent path
+  - mkdir -p $(dirname "$SHARED_DIR")
+  
+  # 2. Create the Symlink
+  # /home/runner/work/libnumakit/libnumakit -> /mnt
+  - ln -s /mnt "$SHARED_DIR"
+  
+  - echo "Path Masquerading Active:"
+  - ls -ld "$SHARED_DIR"
+  
+  - echo "------------------------------------------"
   - lscpu | grep NUMA
   - numactl --hardware
   - echo "------------------------------------------"
-  - cd /mnt/build
+  
+  # 3. Run Tests (Now using the masked path)
+  # We enter the directory using the HOST path, which now resolves to /mnt/build
+  - cd "$SHARED_DIR/build"
+  
   - export CTEST_OUTPUT_ON_FAILURE=1
   - ctest > /mnt/qemu_test.log 2>&1; echo \$? > /mnt/qemu_exit_code
   - poweroff
@@ -57,7 +74,7 @@ cloud-localds "$SEED_ISO" user-data
 
 echo "Booting QEMU with NUMA Topology (2 Nodes, 4 CPUs)..."
 
-# 5. Boot VM (Modern Syntax)
+# 5. Boot VM
 qemu-system-x86_64 \
     -name "numa-test-vm" \
     $QEMU_ACCEL \
