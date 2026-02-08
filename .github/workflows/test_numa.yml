@@ -47,7 +47,7 @@ jobs:
         # - numa: Split 4GB RAM into 2 nodes (2GB each)
         # - smp: 4 CPUs, split into 2 sockets
 
-        qemu-system-x86_64 \
+        sudo qemu-system-x86_64 \
           -kernel /boot/vmlinuz-$(uname -r) \
           -initrd initramfs.gz \
           -m 4G \
