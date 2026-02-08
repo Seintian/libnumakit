@@ -59,7 +59,7 @@ if(BENCHMARK_SOURCES)
     target_link_libraries(nkit_benchmarks PRIVATE numakit PkgConfig::HWLOC ${NUMA_LIBRARIES})
 
     # Register with CTest
-    add_test(NAME benchmarks COMMAND nkit_benchmarks)
+    add_test(NAME benchmarks COMMAND nkit_benchmarks all)
 
     # Verify we can find the headers
     target_include_directories(nkit_benchmarks PRIVATE ${CMAKE_SOURCE_DIR}/include)
