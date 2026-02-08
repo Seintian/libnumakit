@@ -2,8 +2,8 @@
 set -e
 
 # Configuration
-IMG_URL="https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
-IMG_FILE="ubuntu-22.04.img"
+IMG_URL="https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img"
+IMG_FILE="ubuntu-24.04.img"
 SEED_ISO="seed.iso"
 SHARED_DIR=$(pwd) # This is the absolute path on the HOST (e.g., /home/runner/work/...)
 
