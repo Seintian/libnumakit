@@ -30,6 +30,10 @@ typedef struct {
 
     // Configuration
     double balancer_threshold_mpki; // Misses Per Kilo-Instruction threshold
+
+    /* NUMA support available. If this returns a negative value all other function
+    in this library are undefined. */
+    bool numa_supported;
 } nkit_context_t;
 
 // Defined in init.c

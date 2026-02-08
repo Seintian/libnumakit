@@ -86,9 +86,22 @@ int nkit_thread_launch(nkit_thread_policy_t policy, nkit_thread_func_t func, voi
     return 0;
 }
 
-int nkit_bind_current_thread(int node_id) {
+int nkit_bind_thread(int node_id) {
     nkit_thread_policy_t pol = { .type = NKIT_POLICY_BIND_NODE, .node_id = node_id };
     return _apply_policy(pol);
+}
+
+int nkit_unbind_thread(void) {
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+
+    // Enable all CPUs
+    int num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    for (int i = 0; i < num_cpus; i++) {
+        CPU_SET(i, &cpuset);
+    }
+
+    return sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
 }
 
 void nkit_thread_join_all(void) {

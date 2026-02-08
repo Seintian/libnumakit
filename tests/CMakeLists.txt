@@ -50,3 +50,20 @@ if(HWLOC_SOURCES)
     # Verify we can find the headers
     target_include_directories(nkit_hwloc_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
 endif()
+
+# 4. Benchmarks
+# ------------------------------------------------------------------------------
+file(GLOB BENCHMARK_SOURCES "benchmarks/*.c")
+
+if(BENCHMARK_SOURCES)
+    add_executable(nkit_benchmarks ${BENCHMARK_SOURCES})
+
+    # Link against the main library
+    target_link_libraries(nkit_benchmarks PRIVATE numakit)
+
+    # Register with CTest
+    add_test(NAME benchmarks COMMAND nkit_benchmarks)
+
+    # Verify we can find the headers
+    target_include_directories(nkit_benchmarks PRIVATE ${CMAKE_SOURCE_DIR}/include)
+endif()

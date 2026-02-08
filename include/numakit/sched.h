@@ -64,10 +64,16 @@ void nkit_balancer_set_threshold(double mpki);
 int nkit_thread_launch(nkit_thread_policy_t policy, nkit_thread_func_t func, void* arg);
 
 /**
- * @brief Bind the *current* calling thread to a node.
- * Useful if you use your own thread pool (OpenMP/pthreads) but want nkit binding.
+ * @brief Bind the calling thread to a specific NUMA node.
+ * @param node_id The NUMA node ID (0..N-1).
+ * @return 0 on success, -1 on failure.
  */
-int nkit_bind_current_thread(int node_id);
+int nkit_bind_thread(int node_id);
+
+/**
+ * @brief Unbind the thread (allow it to run on any CPU).
+ */
+int nkit_unbind_thread(void);
 
 /**
  * @brief Wait for all nkit-launched threads to finish.
