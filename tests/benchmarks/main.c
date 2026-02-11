@@ -2,7 +2,7 @@
 #include <string.h>
 #include "benchmarks.h"
 
-int main(int argc, char** argv) {
+int main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("Usage: %s <benchmark_name>\n", argv[0]);
         printf("Available benchmarks:\n");

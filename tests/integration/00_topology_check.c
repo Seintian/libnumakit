@@ -6,9 +6,11 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <stdio.h>
-#include <numakit/numakit.h>
 
-int main(void) {
+#include <numakit/numakit.h>
+#include "integration.h"
+
+int integration_00_topology_check(void) {
     // 1. Mount virtual filesystems so hwloc can read topology
     // We need to create the mount points first because our initramfs is empty
     mkdir("/proc", 0755);

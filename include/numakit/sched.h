@@ -24,7 +24,7 @@ typedef struct {
 } nkit_thread_policy_t;
 
 // Function pointer for thread routines
-typedef void (*nkit_thread_func_t)(void* arg);
+typedef void (*nkit_thread_func_t)(void *arg);
 
 /**
  * @brief Balancer Advice Codes.
@@ -61,10 +61,11 @@ void nkit_balancer_set_threshold(double mpki);
  * @param arg Argument passed to func.
  * @return 0 on success, -1 on failure.
  */
-int nkit_thread_launch(nkit_thread_policy_t policy, nkit_thread_func_t func, void* arg);
+int nkit_thread_launch(nkit_thread_policy_t policy, nkit_thread_func_t func,
+                       void *arg);
 
 /**
- * @brief Bind the calling thread to a specific NUMA node.
+ * @brief Bind the calling thread to a specific NUMA node (hwloc backend).
  * @param node_id The NUMA node ID (0..N-1).
  * @return 0 on success, -1 on failure.
  */
@@ -98,16 +99,47 @@ int nkit_current_cpu(void);
  * @brief Send a data pointer to a target NUMA node.
  * Thread-safe (Multi-Producer).
  */
-int nkit_send(int target_node, void* data);
+int nkit_send(int target_node, void *data);
 
 /**
  * @brief Process pending messages for the CURRENT node.
  * Lock-Free Consumer.
  * @param handler Function to call for each message.
- * @param limit Maximum number of messages to process (0 = unlimited, dangerous!).
+ * @param limit Maximum number of messages to process (0 = unlimited,
+ * dangerous!).
  * @return Number of messages actually processed.
  */
-size_t nkit_process_local(void (*handler)(void*), size_t limit);
+size_t nkit_process_local(void (*handler)(void *), size_t limit);
+
+// -----------------------------------------------------------------------------
+// Direct Pinning API (Native Backend)
+// -----------------------------------------------------------------------------
+
+/**
+ * @brief Bind the calling thread to a specific logical core.
+ * Uses pthread_setaffinity_np directly (lower overhead than policy launcher).
+ * @param core_id The logical core ID (OS index).
+ * @return 0 on success, -1 on error.
+ */
+int nkit_pin_thread_to_core(int core_id);
+
+/**
+ * @brief Bind the calling thread to all CPUs in a NUMA node.
+ * Uses libnuma bitmasks directly.
+ * @param node_id The NUMA node ID.
+ * @return 0 on success, -1 on error.
+ */
+int nkit_pin_thread_to_node(int node_id);
+
+/**
+ * @brief Get the current core ID (Alias to sched_getcpu).
+ */
+int nkit_get_current_core(void);
+
+/**
+ * @brief Get the current NUMA node ID (Native lookup).
+ */
+int nkit_get_current_node(void);
 
 #ifdef __cplusplus
 }

@@ -7,8 +7,9 @@
 #include <assert.h>
 
 #include <numakit/numakit.h>
+#include "unit.h"
 
-int main(void) {
+int test_00_sanity_check(void) {
     printf("[UNIT] Sanity check started...\n");
 
     // 1. Basic assertion to prove assert() works
