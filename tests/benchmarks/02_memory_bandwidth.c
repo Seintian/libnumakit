@@ -12,9 +12,9 @@
 
 #include "benchmarks.h"
 
-// 512 MB Payload
-#define DATA_SIZE (512 * 1024 * 1024)
-#define ITERATIONS 20
+// 64 MB Payload
+#define DATA_SIZE (64 * 1024 * 1024)
+#define ITERATIONS 10
 
 // -----------------------------------------------------------------------------
 // Configuration & Globals

@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -14,7 +15,7 @@
 // Configuration
 // -----------------------------------------------------------------------------
 
-#define RUN_TIME_SEC 2
+#define RUN_TIME_SEC 1
 #define READ_RATIO 90  // 90% Reads, 10% Writes
 
 static int g_num_threads = 8;

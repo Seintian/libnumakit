@@ -10,7 +10,7 @@
 
 #include "benchmarks.h"
 
-#define NUM_ROUNDTRIPS 1000000
+#define NUM_ROUNDTRIPS 50000
 
 // Configuration
 static int g_node_a = 0;

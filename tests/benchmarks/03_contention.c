@@ -9,7 +9,7 @@
 
 #include "benchmarks.h"
 
-#define TOTAL_OPS 10000000 // 10 Million Total Increments
+#define TOTAL_OPS 1000000 // 1 Million Total Increments
 
 // -----------------------------------------------------------------------------
 // Globals

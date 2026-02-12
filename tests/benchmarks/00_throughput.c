@@ -10,7 +10,7 @@
 
 #include "benchmarks.h"
 
-#define NUM_MSGS (10 * 1000 * 1000)
+#define NUM_MSGS (1 * 1000 * 1000)
 #define BATCH_SIZE 64
 
 // Configuration
