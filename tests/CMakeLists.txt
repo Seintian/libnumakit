@@ -9,7 +9,7 @@ if(UNIT_SOURCES)
     target_link_libraries(nkit_unit_tests PRIVATE numakit PkgConfig::HWLOC ${NUMA_LIBRARIES})
 
     # Register with CTest
-    add_test(NAME unit_tests COMMAND nkit_unit_tests)
+    add_test(NAME unit_tests COMMAND nkit_unit_tests all)
 
     # Verify we can find the headers
     target_include_directories(nkit_unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
@@ -26,7 +26,7 @@ if(INTEGRATION_SOURCES)
     target_link_libraries(nkit_integration_tests PRIVATE numakit PkgConfig::HWLOC ${NUMA_LIBRARIES})
 
     # Register with CTest
-    add_test(NAME integration_tests COMMAND nkit_integration_tests)
+    add_test(NAME integration_tests COMMAND nkit_integration_tests all)
 
     # Note: On the QEMU CI, this binary is copied into the initramfs.
 endif()
@@ -42,7 +42,7 @@ if(HWLOC_SOURCES)
     target_link_libraries(nkit_hwloc_tests PRIVATE numakit PkgConfig::HWLOC ${NUMA_LIBRARIES})
 
     # Register with CTest
-    add_test(NAME hwloc_tests COMMAND nkit_hwloc_tests)
+    add_test(NAME hwloc_tests COMMAND nkit_hwloc_tests all)
 
     # Verify we can find the headers
     target_include_directories(nkit_hwloc_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
