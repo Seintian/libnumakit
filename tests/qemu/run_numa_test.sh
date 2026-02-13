@@ -65,8 +65,18 @@ runcmd:
   - cd "$SHARED_DIR/build"
   
   - export CTEST_OUTPUT_ON_FAILURE=1
-  # Run Logic Tests Only (Exclude Benchmarks)
-  - ctest -V -E benchmarks > /mnt/qemu_test.log 2>&1; echo \$? > /mnt/qemu_exit_code
+  
+  - echo "[VM] Starting CTest (Excluding Benchmarks)..."
+  # -V: Verbose (print output)
+  # -E benchmarks: Exclude benchmarks
+  # tee: Write to log file AND /dev/console (Serial output visible in CI)
+  - ctest -V -E benchmarks 2>&1 | tee /mnt/qemu_test.log /dev/console
+  
+  # Capture exit code of ctest (first command in pipe)
+  - EXIT_CODE=\${PIPESTATUS[0]}
+  - echo \$EXIT_CODE > /mnt/qemu_exit_code
+  - echo "[VM] CTest finished with code: \$EXIT_CODE"
+  
   - poweroff
 EOF
 
