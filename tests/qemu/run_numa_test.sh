@@ -65,7 +65,7 @@ runcmd:
   - cd "$SHARED_DIR/build"
   
   - export CTEST_OUTPUT_ON_FAILURE=1
-  - ctest > /mnt/qemu_test.log 2>&1; echo \$? > /mnt/qemu_exit_code
+  - ctest -V > /mnt/qemu_test.log 2>&1; echo \$? > /mnt/qemu_exit_code
   - poweroff
 EOF
 
