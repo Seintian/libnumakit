@@ -65,7 +65,8 @@ runcmd:
   - cd "$SHARED_DIR/build"
   
   - export CTEST_OUTPUT_ON_FAILURE=1
-  - ctest -V > /mnt/qemu_test.log 2>&1; echo \$? > /mnt/qemu_exit_code
+  # Run Logic Tests Only (Exclude Benchmarks)
+  - ctest -V -E benchmarks > /mnt/qemu_test.log 2>&1; echo \$? > /mnt/qemu_exit_code
   - poweroff
 EOF
 
