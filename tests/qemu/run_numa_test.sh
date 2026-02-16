@@ -5,7 +5,7 @@ set -e
 IMG_URL="https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img"
 IMG_FILE="ubuntu-24.04.img"
 SEED_ISO="seed.iso"
-SHARED_DIR=$(pwd) # This is the absolute path on the HOST (e.g., /home/runner/work/...)
+SHARED_DIR=$(pwd)
 
 # 1. Download Image
 if [ ! -f "$IMG_FILE" ]; then
@@ -14,7 +14,7 @@ if [ ! -f "$IMG_FILE" ]; then
     qemu-img resize "$IMG_FILE" 4G
 fi
 
-# 2. Determine Acceleration Strategy
+# 2. Determine Acceleration
 if [ -e /dev/kvm ] && sudo chmod 666 /dev/kvm 2>/dev/null; then
     echo "KVM available. Using Hardware Acceleration."
     QEMU_CPU="-cpu host"
@@ -25,8 +25,7 @@ else
     QEMU_ACCEL=""
 fi
 
-# 3. Generate Cloud-Init Config
-# We create a symlink so the VM sees the files at the exact same path as the Host.
+# 3. Generate Cloud-Init Config (Robust Systemd Approach)
 cat > user-data <<EOF
 #cloud-config
 package_update: true
@@ -40,44 +39,65 @@ packages:
 mounts:
   - [ host0, /mnt, 9p, "trans=virtio,version=9p2000.L,cache=none" ]
 
+write_files:
+  - path: /root/run_tests.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # Redirect ALL output to console (for CI logs) AND a log file
+      exec > >(tee -a /dev/console /mnt/qemu_test.log) 2>&1
+      
+      echo "[VM] Starting NUMA Tests..."
+      
+      # 1. Setup Environment
+      mkdir -p $(dirname "$SHARED_DIR")
+      ln -s /mnt "$SHARED_DIR"
+      
+      echo "[VM] Hardware Topology:"
+      numactl --hardware
+      
+      # 2. Navigate to Build Dir
+      if ! cd "$SHARED_DIR/build"; then
+        echo "[VM] ERROR: Build directory not found!"
+        exit 1
+      fi
+      
+      export CTEST_OUTPUT_ON_FAILURE=1
+      
+      # 3. Run Tests (Excluding slow benchmarks)
+      echo "[VM] Running CTest..."
+      ctest -V -E benchmarks
+      EXIT_CODE=\$?
+      
+      # 4. Write Exit Code for Host
+      echo \$EXIT_CODE > /mnt/qemu_exit_code
+      echo "[VM] Finished with code: \$EXIT_CODE"
+      
+      # Sync to ensure data hits the host filesystem
+      sync
+
 runcmd:
-  - echo "=========================================="
-  - echo "   RUNNING TESTS IN NUMA VM (QEMU)"
-  - echo "=========================================="
-  # 1. Recreate Host Directory Structure
-  # We strip the project folder name to get the parent path
-  - mkdir -p $(dirname "$SHARED_DIR")
+  # Create a systemd service to run the tests.
+  # This guarantees execution order and shutdown.
+  - echo "[Service]
+    [Unit]
+    Description=Run NUMA Tests
+    After=network.target local-fs.target
+    
+    [Service]
+    Type=oneshot
+    ExecStart=/root/run_tests.sh
+    # CRITICAL: Shut down the VM regardless of success or failure
+    ExecStopPost=/sbin/poweroff
+    StandardOutput=journal+console
+    StandardError=journal+console
+    
+    [Install]
+    WantedBy=multi-user.target" > /etc/systemd/system/numa-test.service
   
-  # 2. Create the Symlink
-  # /home/runner/work/libnumakit/libnumakit -> /mnt
-  - ln -s /mnt "$SHARED_DIR"
-  
-  - echo "Path Masquerading Active:"
-  - ls -ld "$SHARED_DIR"
-  
-  - echo "------------------------------------------"
-  - lscpu | grep NUMA
-  - numactl --hardware
-  - echo "------------------------------------------"
-  
-  # 3. Run Tests (Now using the masked path)
-  # We enter the directory using the HOST path, which now resolves to /mnt/build
-  - cd "$SHARED_DIR/build"
-  
-  - export CTEST_OUTPUT_ON_FAILURE=1
-  
-  - echo "[VM] Starting CTest (Excluding Benchmarks)..."
-  # -V: Verbose (print output)
-  # -E benchmarks: Exclude benchmarks
-  # tee: Write to log file AND /dev/console (Serial output visible in CI)
-  - ctest -V -E benchmarks 2>&1 | tee /mnt/qemu_test.log /dev/console
-  
-  # Capture exit code of ctest (first command in pipe)
-  - EXIT_CODE=\${PIPESTATUS[0]}
-  - echo \$EXIT_CODE > /mnt/qemu_exit_code
-  - echo "[VM] CTest finished with code: \$EXIT_CODE"
-  
-  - poweroff
+  - systemctl daemon-reload
+  - systemctl enable numa-test.service
+  - systemctl start numa-test.service
 EOF
 
 # 4. Create Seed ISO
@@ -105,11 +125,8 @@ qemu-system-x86_64 \
 # 6. Check Result
 if [ -f qemu_exit_code ]; then
     EXIT_CODE=$(cat qemu_exit_code)
-    echo "------------------------------------------"
-    echo "VM Test Log:"
-    cat qemu_test.log
-    echo "------------------------------------------"
-
+    # Output is already streamed to console via 'tee' inside the VM
+    
     if [ "$EXIT_CODE" -eq 0 ]; then
         echo "SUCCESS: Tests passed in NUMA environment."
         exit 0
