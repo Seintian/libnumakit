@@ -25,7 +25,7 @@ else
     QEMU_ACCEL=""
 fi
 
-# 3. Generate Cloud-Init Config (Robust Systemd Approach)
+# 3. Generate Cloud-Init Config
 cat > user-data <<EOF
 #cloud-config
 package_update: true
@@ -40,6 +40,7 @@ mounts:
   - [ host0, /mnt, 9p, "trans=virtio,version=9p2000.L,cache=none" ]
 
 write_files:
+  # 1. The Test Runner Script
   - path: /root/run_tests.sh
     permissions: '0755'
     content: |
@@ -49,14 +50,14 @@ write_files:
       
       echo "[VM] Starting NUMA Tests..."
       
-      # 1. Setup Environment
+      # Setup Environment
       mkdir -p $(dirname "$SHARED_DIR")
       ln -s /mnt "$SHARED_DIR"
       
       echo "[VM] Hardware Topology:"
       numactl --hardware
       
-      # 2. Navigate to Build Dir
+      # Navigate to Build Dir
       if ! cd "$SHARED_DIR/build"; then
         echo "[VM] ERROR: Build directory not found!"
         exit 1
@@ -64,37 +65,39 @@ write_files:
       
       export CTEST_OUTPUT_ON_FAILURE=1
       
-      # 3. Run Tests (Excluding slow benchmarks)
+      # Run Tests (Excluding slow benchmarks)
       echo "[VM] Running CTest..."
       ctest -V -E benchmarks
       EXIT_CODE=\$?
       
-      # 4. Write Exit Code for Host
+      # Write Exit Code for Host
       echo \$EXIT_CODE > /mnt/qemu_exit_code
       echo "[VM] Finished with code: \$EXIT_CODE"
       
       # Sync to ensure data hits the host filesystem
       sync
 
+  # 2. The Systemd Service (Defined safely here instead of via echo in runcmd)
+  - path: /etc/systemd/system/numa-test.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Run NUMA Tests
+      After=network.target local-fs.target
+      
+      [Service]
+      Type=oneshot
+      ExecStart=/root/run_tests.sh
+      # CRITICAL: Shut down the VM regardless of success or failure
+      ExecStopPost=/sbin/poweroff
+      StandardOutput=journal+console
+      StandardError=journal+console
+      
+      [Install]
+      WantedBy=multi-user.target
+
 runcmd:
-  # Create a systemd service to run the tests.
-  # This guarantees execution order and shutdown.
-  - echo "[Service]
-    [Unit]
-    Description=Run NUMA Tests
-    After=network.target local-fs.target
-    
-    [Service]
-    Type=oneshot
-    ExecStart=/root/run_tests.sh
-    # CRITICAL: Shut down the VM regardless of success or failure
-    ExecStopPost=/sbin/poweroff
-    StandardOutput=journal+console
-    StandardError=journal+console
-    
-    [Install]
-    WantedBy=multi-user.target" > /etc/systemd/system/numa-test.service
-  
+  # Now runcmd is simple and won't break YAML parsing
   - systemctl daemon-reload
   - systemctl enable numa-test.service
   - systemctl start numa-test.service
@@ -125,7 +128,6 @@ qemu-system-x86_64 \
 # 6. Check Result
 if [ -f qemu_exit_code ]; then
     EXIT_CODE=$(cat qemu_exit_code)
-    # Output is already streamed to console via 'tee' inside the VM
     
     if [ "$EXIT_CODE" -eq 0 ]; then
         echo "SUCCESS: Tests passed in NUMA environment."
