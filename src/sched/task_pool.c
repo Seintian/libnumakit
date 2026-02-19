@@ -49,6 +49,25 @@ struct nkit_pool_s {
 // Helpers
 // -----------------------------------------------------------------------------
 
+// Progressive Backoff Helper
+static inline void nkit_backoff(int* spin_count) {
+    if (*spin_count < 2000) {
+        // Phase 1: Hot spin (Ultra-low latency, low power)
+        #if defined(__x86_64__) || defined(_M_X64)
+            __builtin_ia32_pause();
+        #else
+            __asm__ volatile ("yield" ::: "memory"); // ARM equivalent
+        #endif
+    } else if (*spin_count < 5000) {
+        // Phase 2: Warm spin (Politely yield OS thread)
+        sched_yield(); 
+    } else {
+        // Phase 3: Cold idle (Drop CPU usage to 0%)
+        usleep(1000); // Sleep for 1 millisecond
+    }
+    (*spin_count)++;
+}
+
 // Round up to next power of 2 for fast ring buffer bitwise operations
 static uint32_t _next_power_of_2(uint32_t v) {
     v--;
@@ -77,62 +96,51 @@ static void* _nkit_worker(void* arg) {
     nkit_node_pool_t* my_pool = (nkit_node_pool_t*)arg;
     struct nkit_pool_s* global_pool = my_pool->global_pool; 
 
-    // Pin worker to its designated node
     nkit_pin_thread_to_node(my_pool->node_id);
+
+    int idle_spins = 0;
 
     while (!global_pool->stop) {
         void* task_ptr = NULL;
 
-        // 1. Try Local Queue First (Fast Path)
+        // 1. Try Local Queue First
         if (nkit_ring_pop(my_pool->task_queue, &task_ptr)) {
+            idle_spins = 0;
             nkit_task_t* task = (nkit_task_t*)task_ptr;
-
-            // Execute the work
             task->func(task->arg);
 
-            // Return the task struct to its origin node's free list
             while (!nkit_ring_push(task->home_free_queue, task)) {
                 #if defined(__x86_64__) || defined(_M_X64)
                     __builtin_ia32_pause();
-                #else
-                    sched_yield();
                 #endif
             }
             continue;
         }
 
-        // 2. Local is empty. Try Stealing (Hierarchical: closest nodes first)
+        // 2. Try Stealing
         int stole = 0;
         if (global_pool->num_nodes > 1 && my_pool->steal_order != NULL) {
             for (int i = 0; i < global_pool->num_nodes - 1; i++) {
                 int target_node = my_pool->steal_order[i];
                 if (nkit_ring_pop(global_pool->node_pools[target_node].task_queue, &task_ptr)) {
+                    idle_spins = 0;
                     nkit_task_t* task = (nkit_task_t*)task_ptr;
-                    
-                    // Execute the stolen work
                     task->func(task->arg);
-                    
-                    // Return the task struct to its origin node's free list
+
                     while (!nkit_ring_push(task->home_free_queue, task)) {
-                        #if defined(__x86_64__) || defined(_M_X64)
-                            __builtin_ia32_pause();
-                        #else
-                            sched_yield();
-                        #endif
+                    #if defined(__x86_64__) || defined(_M_X64)
+                        __builtin_ia32_pause();
+                    #endif
                     }
                     stole = 1;
-                    break; // Process one task, then re-check local queue
+                    break;
                 }
             }
         }
 
-        // 3. Completely idle
+        // 3. Progressive Idle
         if (!stole) {
-            #if defined(__x86_64__) || defined(_M_X64)
-                __builtin_ia32_pause();
-            #else
-                sched_yield();
-            #endif
+            nkit_backoff(&idle_spins);
         }
     }
     return NULL;
@@ -216,29 +224,24 @@ nkit_pool_t* nkit_pool_create(void) {
 }
 
 int nkit_pool_submit_to_node(nkit_pool_t* pool, int target_node, void (*func)(void*), void* arg) {
-    if (target_node < 0 || target_node >= pool->num_nodes) target_node = 0;
+    if (target_node < 0 || target_node >= pool->num_nodes)
+        target_node = 0;
 
     nkit_node_pool_t* np = &pool->node_pools[target_node];
     void* free_task_ptr = NULL;
 
-    // LOCK-FREE HOT PATH: Pop a pre-allocated task struct from the free list
     if (!nkit_ring_pop(np->free_queue, &free_task_ptr)) {
-        // The queue is entirely full of pending tasks!
         errno = EAGAIN;
-        return -1; 
+        return -1;
     }
 
     nkit_task_t* task = (nkit_task_t*)free_task_ptr;
     task->func = func;
     task->arg = arg;
 
-    // Push the filled task into the work queue
+    int submit_spins = 0;
     while (!nkit_ring_push(np->task_queue, task)) {
-        #if defined(__x86_64__) || defined(_M_X64)
-            __builtin_ia32_pause();
-        #else
-            sched_yield();
-        #endif
+        nkit_backoff(&submit_spins);
     }
     return 0;
 }
