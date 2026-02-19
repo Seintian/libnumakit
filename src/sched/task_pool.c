@@ -11,13 +11,11 @@
 #include <numakit/numakit.h>
 #include <numakit/sched.h>
 
-// Internal wrapper for tasks
 typedef struct {
     void (*func)(void *);
     void *arg;
 } nkit_task_t;
 
-// Forward declaration needed for the back-pointer
 struct nkit_pool_s;
 
 typedef struct {
@@ -25,7 +23,7 @@ typedef struct {
     nkit_ring_t *queue;
     pthread_t *threads;
     int num_threads;
-    int *steal_order;                // Array of other node IDs sorted by distance
+    int *steal_order;
     struct nkit_pool_s *global_pool;
 } nkit_node_pool_t;
 
@@ -35,7 +33,6 @@ struct nkit_pool_s {
     volatile int stop;
 };
 
-// Helper: Round up to next power of 2 for fast ring buffer bitwise operations
 static uint32_t _next_power_of_2(uint32_t v) {
     v--;
     v |= v >> 1;
@@ -47,19 +44,16 @@ static uint32_t _next_power_of_2(uint32_t v) {
     return v;
 }
 
-// Worker thread routine
 static void *_nkit_worker(void *arg) {
     nkit_node_pool_t *my_pool = (nkit_node_pool_t *)arg;
-    struct nkit_pool_s *global_pool =
-        my_pool->global_pool; // Safely access global pool
+    struct nkit_pool_s *global_pool = my_pool->global_pool;
 
-    // Pin worker to its designated node
     nkit_pin_thread_to_node(my_pool->node_id);
 
     while (!global_pool->stop) {
         void *task_ptr = NULL;
 
-        // 1. Try Local Queue First (Fast Path)
+        // 1. Local Fast Path
         if (nkit_ring_pop(my_pool->queue, &task_ptr)) {
             nkit_task_t *task = (nkit_task_t *)task_ptr;
             task->func(task->arg);
@@ -67,21 +61,22 @@ static void *_nkit_worker(void *arg) {
             continue;
         }
 
-        // 2. Local is empty. Try Stealing (Hierarchical: closest nodes first)
+        // 2. Stealing Path (Only if we have >1 nodes)
         int stole = 0;
-        for (int i = 0; i < global_pool->num_nodes - 1; i++) {
-            int target_node = my_pool->steal_order[i];
-            if (nkit_ring_pop(global_pool->node_pools[target_node].queue,
+        if (global_pool->num_nodes > 1 && my_pool->steal_order != NULL) {
+            for (int i = 0; i < global_pool->num_nodes - 1; i++) {
+                int target_node = my_pool->steal_order[i];
+                if (nkit_ring_pop(global_pool->node_pools[target_node].queue,
                                 &task_ptr)) {
                 nkit_task_t *task = (nkit_task_t *)task_ptr;
                 task->func(task->arg);
                 free(task);
                 stole = 1;
-                break; // Process one task, then re-check local queue
+                break;
+                }
             }
         }
 
-        // 3. Completely idle
         if (!stole) {
         #if defined(__x86_64__) || defined(_M_X64)
             __builtin_ia32_pause();
@@ -93,7 +88,6 @@ static void *_nkit_worker(void *arg) {
     return NULL;
 }
 
-// Compare function for qsort to sort stealing order by NUMA distance
 static int _my_node_for_sort = 0;
 static int _cmp_distance(const void *a, const void *b) {
     int node_a = *(const int *)a;
@@ -120,7 +114,6 @@ nkit_pool_t *nkit_pool_create(void) {
     if (cpus_per_node == 0)
         cpus_per_node = 1;
 
-    // Dynamically scale queue capacity
     uint32_t ring_capacity = _next_power_of_2(cpus_per_node * 1024);
     if (ring_capacity < 1024)
         ring_capacity = 1024;
@@ -129,19 +122,30 @@ nkit_pool_t *nkit_pool_create(void) {
         nkit_node_pool_t *np = &pool->node_pools[i];
         np->node_id = i;
         np->queue = nkit_ring_create(i, ring_capacity);
+
+        // Safety: If hugepages run out, queue creation fails
+        if (!np->queue) {
+            pool->num_nodes = i; // Only destroy what we've created
+            nkit_pool_destroy(pool);
+            return NULL;
+        }
+
         np->num_threads = cpus_per_node;
         np->threads = malloc(sizeof(pthread_t) * np->num_threads);
-        np->global_pool = pool; // <-- Set the back-pointer cleanly
+        np->global_pool = pool;
 
-        // Compute Steal Order based on hardware distances
+        if (pool->num_nodes > 1) {
         np->steal_order = malloc(sizeof(int) * (pool->num_nodes - 1));
         int idx = 0;
         for (int j = 0; j < pool->num_nodes; j++) {
-        if (i != j)
+            if (i != j)
             np->steal_order[idx++] = j;
         }
         _my_node_for_sort = i;
         qsort(np->steal_order, pool->num_nodes - 1, sizeof(int), _cmp_distance);
+        } else {
+        np->steal_order = NULL;
+        }
 
         for (int t = 0; t < np->num_threads; t++) {
             pthread_create(&np->threads[t], NULL, _nkit_worker, np);
@@ -194,7 +198,8 @@ void nkit_pool_destroy(nkit_pool_t *pool) {
         for (int t = 0; t < np->num_threads; t++) {
             pthread_join(np->threads[t], NULL);
         }
-        nkit_ring_free(np->queue);
+        if (np->queue)
+            nkit_ring_free(np->queue);
         free(np->threads);
         free(np->steal_order);
     }
