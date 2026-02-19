@@ -7,23 +7,34 @@
 #include <unistd.h>
 #include <sched.h>
 #include <stdint.h>
+#include <errno.h>
 
 #include <numakit/sched.h>
 #include <numakit/numakit.h>
 
+// -----------------------------------------------------------------------------
+// Internal Data Structures
+// -----------------------------------------------------------------------------
+
+// The task structure itself now knows where it came from.
 typedef struct {
     void (*func)(void*);
     void* arg;
+    nkit_ring_t* home_free_queue; // Where this struct must be returned after execution
 } nkit_task_t;
 
 struct nkit_pool_s;
 
 typedef struct {
     int node_id;
-    nkit_ring_t* queue;
+    uint32_t capacity;           // Track capacity so we can numa_free properly
+    nkit_ring_t* task_queue;     // Tasks waiting to be executed
+    nkit_ring_t* free_queue;     // Pointers to unused nkit_task_t structs
+    nkit_task_t* task_array;     // The physical memory for the task structs
+
     pthread_t* threads;
     int num_threads;
-    int threads_started; // Tracks successful thread creations for safe destruction
+    int threads_started;
     int* steal_order; 
     struct nkit_pool_s* global_pool; 
 } nkit_node_pool_t;
@@ -34,6 +45,11 @@ struct nkit_pool_s {
     volatile int stop;
 };
 
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+// Round up to next power of 2 for fast ring buffer bitwise operations
 static uint32_t _next_power_of_2(uint32_t v) {
     v--;
     v |= v >> 1;
@@ -45,38 +61,72 @@ static uint32_t _next_power_of_2(uint32_t v) {
     return v;
 }
 
+// Compare function for qsort to sort stealing order by NUMA distance
+static int _my_node_for_sort = 0;
+static int _cmp_distance(const void* a, const void* b) {
+    int node_a = *(const int*)a;
+    int node_b = *(const int*)b;
+    return numa_distance(_my_node_for_sort, node_a) - numa_distance(_my_node_for_sort, node_b);
+}
+
+// -----------------------------------------------------------------------------
+// Worker Thread
+// -----------------------------------------------------------------------------
+
 static void* _nkit_worker(void* arg) {
     nkit_node_pool_t* my_pool = (nkit_node_pool_t*)arg;
     struct nkit_pool_s* global_pool = my_pool->global_pool; 
 
+    // Pin worker to its designated node
     nkit_pin_thread_to_node(my_pool->node_id);
 
     while (!global_pool->stop) {
         void* task_ptr = NULL;
 
-        // 1. Try Local Queue First
-        if (nkit_ring_pop(my_pool->queue, &task_ptr)) {
+        // 1. Try Local Queue First (Fast Path)
+        if (nkit_ring_pop(my_pool->task_queue, &task_ptr)) {
             nkit_task_t* task = (nkit_task_t*)task_ptr;
+
+            // Execute the work
             task->func(task->arg);
-            free(task);
+
+            // Return the task struct to its origin node's free list
+            while (!nkit_ring_push(task->home_free_queue, task)) {
+                #if defined(__x86_64__) || defined(_M_X64)
+                    __builtin_ia32_pause();
+                #else
+                    sched_yield();
+                #endif
+            }
             continue;
         }
 
-        // 2. Try Stealing (Only if system has >1 nodes)
+        // 2. Local is empty. Try Stealing (Hierarchical: closest nodes first)
         int stole = 0;
         if (global_pool->num_nodes > 1 && my_pool->steal_order != NULL) {
             for (int i = 0; i < global_pool->num_nodes - 1; i++) {
                 int target_node = my_pool->steal_order[i];
-                if (nkit_ring_pop(global_pool->node_pools[target_node].queue, &task_ptr)) {
+                if (nkit_ring_pop(global_pool->node_pools[target_node].task_queue, &task_ptr)) {
                     nkit_task_t* task = (nkit_task_t*)task_ptr;
+                    
+                    // Execute the stolen work
                     task->func(task->arg);
-                    free(task);
+                    
+                    // Return the task struct to its origin node's free list
+                    while (!nkit_ring_push(task->home_free_queue, task)) {
+                        #if defined(__x86_64__) || defined(_M_X64)
+                            __builtin_ia32_pause();
+                        #else
+                            sched_yield();
+                        #endif
+                    }
                     stole = 1;
-                    break;
+                    break; // Process one task, then re-check local queue
                 }
             }
         }
 
+        // 3. Completely idle
         if (!stole) {
             #if defined(__x86_64__) || defined(_M_X64)
                 __builtin_ia32_pause();
@@ -88,12 +138,9 @@ static void* _nkit_worker(void* arg) {
     return NULL;
 }
 
-static int _my_node_for_sort = 0;
-static int _cmp_distance(const void* a, const void* b) {
-    int node_a = *(const int*)a;
-    int node_b = *(const int*)b;
-    return numa_distance(_my_node_for_sort, node_a) - numa_distance(_my_node_for_sort, node_b);
-}
+// -----------------------------------------------------------------------------
+// Public API
+// -----------------------------------------------------------------------------
 
 nkit_pool_t* nkit_pool_create(void) {
     if (numa_available() < 0) return NULL;
@@ -109,6 +156,7 @@ nkit_pool_t* nkit_pool_create(void) {
     int cpus_per_node = total_cpus / pool->num_nodes;
     if (cpus_per_node == 0) cpus_per_node = 1;
 
+    // Dynamically scale queue capacity: Allocate 1024 slots per CPU core
     uint32_t ring_capacity = _next_power_of_2(cpus_per_node * 1024);
     if (ring_capacity < 1024) ring_capacity = 1024;
 
@@ -119,15 +167,29 @@ nkit_pool_t* nkit_pool_create(void) {
         np->num_threads = cpus_per_node;
         np->threads_started = 0;
         np->global_pool = pool; 
+        np->capacity = ring_capacity;
 
-        np->queue = nkit_ring_create(i, ring_capacity);
-        if (!np->queue) {
+        np->task_queue = nkit_ring_create(i, ring_capacity);
+        np->free_queue = nkit_ring_create(i, ring_capacity);
+
+        // Allocate the physical task structs directly on this NUMA node
+        np->task_array = numa_alloc_onnode(sizeof(nkit_task_t) * ring_capacity, i);
+
+        if (!np->task_queue || !np->free_queue || !np->task_array) {
+            // Memory allocation failed (e.g. out of hugepages)
             nkit_pool_destroy(pool);
             return NULL; 
         }
 
+        // Populate the free queue with pointers to our pre-allocated array
+        for (uint32_t j = 0; j < ring_capacity; j++) {
+            np->task_array[j].home_free_queue = np->free_queue;
+            nkit_ring_push(np->free_queue, &np->task_array[j]);
+        }
+
         np->threads = malloc(sizeof(pthread_t) * np->num_threads);
 
+        // Build the steal order
         if (pool->num_nodes > 1) {
             np->steal_order = malloc(sizeof(int) * (pool->num_nodes - 1));
             int idx = 0;
@@ -156,12 +218,22 @@ nkit_pool_t* nkit_pool_create(void) {
 int nkit_pool_submit_to_node(nkit_pool_t* pool, int target_node, void (*func)(void*), void* arg) {
     if (target_node < 0 || target_node >= pool->num_nodes) target_node = 0;
 
-    nkit_task_t* task = malloc(sizeof(nkit_task_t));
-    if(!task) return -1;
+    nkit_node_pool_t* np = &pool->node_pools[target_node];
+    void* free_task_ptr = NULL;
+
+    // LOCK-FREE HOT PATH: Pop a pre-allocated task struct from the free list
+    if (!nkit_ring_pop(np->free_queue, &free_task_ptr)) {
+        // The queue is entirely full of pending tasks!
+        errno = EAGAIN;
+        return -1; 
+    }
+
+    nkit_task_t* task = (nkit_task_t*)free_task_ptr;
     task->func = func;
     task->arg = arg;
 
-    while (!nkit_ring_push(pool->node_pools[target_node].queue, task)) {
+    // Push the filled task into the work queue
+    while (!nkit_ring_push(np->task_queue, task)) {
         #if defined(__x86_64__) || defined(_M_X64)
             __builtin_ia32_pause();
         #else
@@ -173,12 +245,14 @@ int nkit_pool_submit_to_node(nkit_pool_t* pool, int target_node, void (*func)(vo
 
 int nkit_pool_submit_local(nkit_pool_t* pool, void (*func)(void*), void* data_ptr) {
     int node_id = 0;
+
+    // Auto-detect physical node where data_ptr resides
     void* pages[1] = { data_ptr };
     int status[1] = { -1 };
-
     if (move_pages(0, 1, pages, NULL, status, 0) == 0 && status[0] >= 0) {
         node_id = status[0];
     }
+
     return nkit_pool_submit_to_node(pool, node_id, func, data_ptr);
 }
 
@@ -194,7 +268,15 @@ void nkit_pool_destroy(nkit_pool_t* pool) {
             pthread_join(np->threads[t], NULL);
         }
 
-        if (np->queue) nkit_ring_free(np->queue);
+        // Cleanup Queues
+        if (np->task_queue) nkit_ring_free(np->task_queue);
+        if (np->free_queue) nkit_ring_free(np->free_queue);
+
+        // Cleanup memory using numa_free
+        if (np->task_array) {
+            numa_free(np->task_array, sizeof(nkit_task_t) * np->capacity);
+        }
+
         if (np->threads) free(np->threads);
         if (np->steal_order) free(np->steal_order);
     }
