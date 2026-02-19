@@ -42,6 +42,16 @@ void nkit_arena_reset(nkit_arena_t* arena);
  */
 void nkit_arena_destroy(nkit_arena_t* arena);
 
+/**
+ * @brief Forceably migrate a block of memory to a new NUMA node.
+ * Translates virtual addresses to pages and migrates them in the kernel.
+ * @param ptr Start of the memory block.
+ * @param size Size in bytes.
+ * @param target_node The destination NUMA node.
+ * @return 0 on success, -1 on failure.
+ */
+int nkit_memory_migrate(void *ptr, size_t size, int target_node);
+
 #ifdef __cplusplus
 }
 #endif

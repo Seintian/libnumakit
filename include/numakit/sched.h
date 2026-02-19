@@ -141,6 +141,40 @@ int nkit_get_current_core(void);
  */
 int nkit_get_current_node(void);
 
+// -----------------------------------------------------------------------------
+// NUMA-Aware Task Pool
+// -----------------------------------------------------------------------------
+
+typedef struct nkit_pool_s nkit_pool_t;
+
+/**
+ * @brief Initialize a global NUMA-aware thread pool.
+ * Spawns threads proportional to the hardware cores on each node.
+ */
+nkit_pool_t *nkit_pool_create(void);
+
+/**
+ * @brief Submit a task to run on the optimal node for the given data.
+ * The pool looks up the physical memory location of 'data_ptr' and
+ * queues the task on the thread local to that NUMA node.
+ * * @param pool The task pool.
+ * @param func The function to execute.
+ * @param data_ptr Pointer to the data the task will process.
+ */
+int nkit_pool_submit_local(nkit_pool_t *pool, void (*func)(void *),
+                           void *data_ptr);
+
+/**
+ * @brief Submit a task to a specific, explicit NUMA node.
+ */
+int nkit_pool_submit_to_node(nkit_pool_t *pool, int target_node,
+                             void (*func)(void *), void *arg);
+
+/**
+ * @brief Gracefully shutdown the pool and wait for tasks to finish.
+ */
+void nkit_pool_destroy(nkit_pool_t *pool);
+
 #ifdef __cplusplus
 }
 #endif

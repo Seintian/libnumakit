@@ -9,6 +9,8 @@ int main(int argc, char *argv[]) {
         printf("  00_topology_check   - Test topology check (00)\n");
         printf("  01_pinning_check    - Test pinning check (01)\n");
         printf("  02_cross_node_messaging - Test cross-node messaging (02)\n");
+        printf("  03_pool_routing - Test pool routing (03)\n");
+        printf("  04_page_migration - Test page migration (04)\n");
         printf("  all                 - Run all integrations sequentially\n");
         return 1;
     }
@@ -19,6 +21,10 @@ int main(int argc, char *argv[]) {
         return integration_01_pinning_check();
     } else if (strcmp(argv[1], "02_cross_node_messaging") == 0) {
         return integration_02_cross_node_messaging();
+    } else if (strcmp(argv[1], "03_pool_routing") == 0) {
+        return integration_03_pool_routing();
+    } else if (strcmp(argv[1], "04_page_migration") == 0) {
+        return integration_04_page_migration();
     } else if (strcmp(argv[1], "all") == 0) {
         printf(">>> RUNNING INTEGRATION 00: TOPOLOGY CHECK <<<\n");
         integration_00_topology_check();
@@ -28,6 +34,12 @@ int main(int argc, char *argv[]) {
 
         printf("\n\n>>> RUNNING INTEGRATION 02: CROSS-NODE MESSAGING <<<\n");
         integration_02_cross_node_messaging();
+
+        printf("\n\n>>> RUNNING INTEGRATION 03: POOL ROUTING <<<\n");
+        integration_03_pool_routing();
+
+        printf("\n\n>>> RUNNING INTEGRATION 04: PAGE MIGRATION <<<\n");
+        integration_04_page_migration();
         return 0;
     }
 
