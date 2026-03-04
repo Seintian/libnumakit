@@ -7,6 +7,7 @@ extern "C" {
 
 #include <stdatomic.h>
 #include <stdint.h>
+#include <stdalign.h>
 
 /**
  * @brief MCS Lock Node.
@@ -80,6 +81,41 @@ void nkit_rws_write_lock(nkit_rws_lock_t* lock);
  * @brief Release exclusive write access.
  */
 void nkit_rws_write_unlock(nkit_rws_lock_t* lock);
+
+/**
+ * @brief Ticket Lock (Fair Spinlock).
+ * Ensures FIFO ordering of lock acquisition.
+ * Padded to 64 bytes to prevent false sharing between acquiring and releasing threads.
+ */
+typedef struct {
+    alignas(64) _Atomic(uint32_t) ticket;
+    alignas(64) _Atomic(uint32_t) serving;
+} nkit_ticket_lock_t;
+
+/**
+ * @brief Initialize the ticket lock.
+ * Sets the 'ticket' and 'serving' atomic properties to zero.
+ * @param lock Pointer to the ticket lock to initialize.
+ */
+void nkit_ticket_init(nkit_ticket_lock_t* lock);
+
+/**
+ * @brief Acquire the ticket lock using Proportional Backoff.
+ * 
+ * Takes a ticket asynchronously and waits until the 'serving' counter matches it.
+ * Utilizes a proportional backoff strategy where threads further back in the 
+ * queue delay polling the cache line longer to reduce interconnect starvation.
+ * 
+ * @param lock Pointer to the ticket lock to acquire.
+ */
+void nkit_ticket_lock(nkit_ticket_lock_t* lock);
+
+/**
+ * @brief Release the ticket lock.
+ * Increments the 'serving' counter, thereby signaling the next thread in FIFO order.
+ * @param lock Pointer to the ticket lock to release.
+ */
+void nkit_ticket_unlock(nkit_ticket_lock_t* lock);
 
 #ifdef __cplusplus
 }
