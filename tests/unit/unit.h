@@ -7,5 +7,6 @@ int test_02_task_pool(void);
 int test_03_memory_migrate(void);
 int test_04_ticket_lock(void);
 int test_05_pcounter(void);
+int test_06_hash_table(void);
 
 #endif

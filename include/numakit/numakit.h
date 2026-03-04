@@ -9,6 +9,7 @@ extern "C" {
 #include "sched.h"
 #include "sync.h"
 #include "structs/ring_buffer.h"
+#include "structs/hash_table.h"
 
 // Versioning
 #define NKIT_VERSION_MAJOR 0
