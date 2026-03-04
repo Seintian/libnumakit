@@ -117,6 +117,64 @@ void nkit_ticket_lock(nkit_ticket_lock_t* lock);
  */
 void nkit_ticket_unlock(nkit_ticket_lock_t* lock);
 
+// =============================================================================
+// Partitioned Counter (NUMA-Aware Distributed Atomic Counter)
+// =============================================================================
+
+/**
+ * @brief Opaque handle for a partitioned counter.
+ *
+ * Each NUMA node gets its own cache-line-aligned counter slot.
+ * Increments are local (no cross-socket traffic), reads aggregate lazily.
+ * The library must be initialized via nkit_init() before creating a counter.
+ */
+typedef struct nkit_pcounter_s nkit_pcounter_t;
+
+/**
+ * @brief Create a new partitioned counter.
+ * Allocates one counter slot per NUMA node, each pinned to its local node.
+ * @return Pointer to the counter, or NULL on failure.
+ */
+nkit_pcounter_t* nkit_pcounter_create(void);
+
+/**
+ * @brief Destroy a partitioned counter and free all per-node slots.
+ * @param counter The counter to destroy.
+ */
+void nkit_pcounter_destroy(nkit_pcounter_t* counter);
+
+/**
+ * @brief Add a value to the counter from the calling thread's local node.
+ * Uses relaxed atomics for maximum throughput (eventually consistent).
+ * @param counter The counter handle.
+ * @param value The value to add (may be negative).
+ */
+void nkit_pcounter_add(nkit_pcounter_t* counter, int64_t value);
+
+/**
+ * @brief Increment the counter by 1. Sugar for nkit_pcounter_add(counter, 1).
+ */
+void nkit_pcounter_inc(nkit_pcounter_t* counter);
+
+/**
+ * @brief Decrement the counter by 1. Sugar for nkit_pcounter_add(counter, -1).
+ */
+void nkit_pcounter_dec(nkit_pcounter_t* counter);
+
+/**
+ * @brief Read the aggregate value across all NUMA nodes.
+ * Sums all per-node slots with acquire semantics.
+ * @param counter The counter handle.
+ * @return The summed value.
+ */
+int64_t nkit_pcounter_read(nkit_pcounter_t* counter);
+
+/**
+ * @brief Reset all per-node slots to zero.
+ * @param counter The counter handle.
+ */
+void nkit_pcounter_reset(nkit_pcounter_t* counter);
+
 #ifdef __cplusplus
 }
 #endif

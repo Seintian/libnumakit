@@ -11,6 +11,7 @@ int main(int argc, char *argv[]) {
         printf("  02_task_pool      - Test task pool (02)\n");
         printf("  03_memory_migrate - Test memory migration (03)\n");
         printf("  04_ticket_lock    - Test ticket lock primitive (04)\n");
+        printf("  05_pcounter       - Test partitioned counter (05)\n");
         printf("  all               - Run all units sequentially\n");
         return 1;
     }
@@ -25,6 +26,8 @@ int main(int argc, char *argv[]) {
         return test_03_memory_migrate();
     } else if (strcmp(argv[1], "04_ticket_lock") == 0) {
         return test_04_ticket_lock();
+    } else if (strcmp(argv[1], "05_pcounter") == 0) {
+        return test_05_pcounter();
     } else if (strcmp(argv[1], "all") == 0) {
         printf(">>> RUNNING UNIT 00: SANITY CHECK <<<\n");
         test_00_sanity_check();
@@ -40,6 +43,9 @@ int main(int argc, char *argv[]) {
 
         printf("\n\n>>> RUNNING UNIT 04: TICKET LOCK <<<\n");
         test_04_ticket_lock();
+
+        printf("\n\n>>> RUNNING UNIT 05: PARTITIONED COUNTER <<<\n");
+        test_05_pcounter();
         return 0;
     }
 
