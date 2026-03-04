@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <stddef.h>
+#include <pthread.h>
 
 /**
  * @brief Thread affinity policies.
@@ -174,6 +175,74 @@ int nkit_pool_submit_to_node(nkit_pool_t *pool, int target_node,
  * @brief Gracefully shutdown the pool and wait for tasks to finish.
  */
 void nkit_pool_destroy(nkit_pool_t *pool);
+
+// -----------------------------------------------------------------------------
+// Auto-Balancer (Background Cache-Miss Monitor)
+// -----------------------------------------------------------------------------
+
+/**
+ * @brief Opaque handle for the auto-balancer.
+ *
+ * The auto-balancer runs a **background thread** that periodically
+ * samples hardware performance counters (cache misses / instructions)
+ * for every registered worker thread. When a thread's MPKI exceeds
+ * the configured threshold, the balancer migrates it to the NUMA
+ * node with the most available capacity.
+ */
+typedef struct nkit_auto_balancer_s nkit_auto_balancer_t;
+
+/**
+ * @brief Callback invoked when the auto-balancer migrates a thread.
+ *
+ * @param tid         The pthread_t of the migrated thread.
+ * @param from_node   The NUMA node the thread was on.
+ * @param to_node     The NUMA node the thread was moved to.
+ * @param mpki        The measured Misses Per Kilo-Instruction.
+ */
+typedef void (*nkit_migration_cb_t)(pthread_t tid, int from_node,
+                                     int to_node, double mpki);
+
+/**
+ * @brief Create and start the auto-balancer.
+ *
+ * @param interval_ms  Sampling interval in milliseconds (e.g. 500).
+ * @param mpki_thresh  MPKI threshold above which migration is advised.
+ * @param cb           Optional callback for migration events (may be NULL).
+ * @return Handle to the balancer, or NULL on failure.
+ */
+nkit_auto_balancer_t *nkit_auto_balancer_create(unsigned interval_ms,
+                                                 double mpki_thresh,
+                                                 nkit_migration_cb_t cb);
+
+/**
+ * @brief Register a thread for automatic monitoring.
+ *
+ * @param ab   The auto-balancer handle.
+ * @param tid  The pthread_t to monitor.
+ * @param node Current NUMA node the thread is pinned to.
+ * @return 0 on success, -1 if the registry is full.
+ */
+int nkit_auto_balancer_register(nkit_auto_balancer_t *ab, pthread_t tid,
+                                 int node);
+
+/**
+ * @brief Unregister a thread from monitoring.
+ *
+ * @param ab   The auto-balancer handle.
+ * @param tid  The pthread_t to stop monitoring.
+ * @return 0 on success, -1 if not found.
+ */
+int nkit_auto_balancer_unregister(nkit_auto_balancer_t *ab, pthread_t tid);
+
+/**
+ * @brief Query the number of migrations performed so far.
+ */
+size_t nkit_auto_balancer_migrations(nkit_auto_balancer_t *ab);
+
+/**
+ * @brief Stop the background thread and destroy the balancer.
+ */
+void nkit_auto_balancer_destroy(nkit_auto_balancer_t *ab);
 
 #ifdef __cplusplus
 }

@@ -159,20 +159,44 @@ int nkit_pin_thread_to_core(int core_id) {
 }
 
 int nkit_pin_thread_to_node(int node_id) {
-    // 1. Validation using libnuma
-    if (numa_available() < 0 || node_id > numa_max_node()) {
+    // 1. Check if NUMA is available
+    if (numa_available() < 0) {
+        // On UMA systems, only node 0 is valid — it implicitly contains
+        // all CPUs.  Bind to all online CPUs (which is the entire system).
+        if (node_id != 0) {
+            errno = EINVAL;
+            return -1;
+        }
+
+        // UMA fallback: bind to all online CPUs
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        int num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+        for (int i = 0; i < num_cpus; i++) {
+            CPU_SET(i, &cpuset);
+        }
+        int ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+        if (ret != 0) {
+            errno = ret;
+            return -1;
+        }
+        return 0;
+    }
+
+    // 2. Validation
+    if (node_id > numa_max_node()) {
         errno = EINVAL;
         return -1;
     }
 
-    // 2. Allocate bitmask from libnuma
+    // 3. Allocate bitmask from libnuma
     struct bitmask *mask = numa_allocate_cpumask();
     if (numa_node_to_cpus(node_id, mask) != 0) {
         numa_free_cpumask(mask);
         return -1;
     }
 
-    // 3. Convert to pthread cpu_set_t
+    // 4. Convert to pthread cpu_set_t
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
 
@@ -183,7 +207,7 @@ int nkit_pin_thread_to_node(int node_id) {
         }
     }
 
-    // 4. Apply Affinity
+    // 5. Apply Affinity
     pthread_t current_thread = pthread_self();
     int ret = pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
 

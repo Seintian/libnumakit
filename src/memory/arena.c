@@ -109,3 +109,75 @@ void nkit_arena_destroy(nkit_arena_t* arena) {
         free(arena);
     }
 }
+
+void nkit_arena_reset(nkit_arena_t* arena) {
+    if (arena) {
+        arena->used = 0;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Hugepage Coalescing
+// ---------------------------------------------------------------------------
+
+size_t nkit_arena_coalesce(nkit_arena_t* arena) {
+    if (!arena) return 0;
+    if (!arena->base || arena->base == MAP_FAILED) return 0;
+    if (arena->size == 0) return 0;
+
+    // Determine the page size to use for coalescing.
+    // For hugepage-backed arenas we use 2MB; for standard pages we use
+    // the normal page size (typically 4KB).
+    size_t page_size = arena->use_huge ? HUGE_PAGE_SIZE : (size_t)sysconf(_SC_PAGESIZE);
+    if (page_size == 0) return 0;
+
+    // Find the first page boundary ABOVE the current watermark.
+    // Everything from that point to the end of the arena is unused.
+    uintptr_t base_addr = (uintptr_t)arena->base;
+    uintptr_t used_end  = base_addr + arena->used;
+
+    // Align used_end UP to the next page boundary
+    uintptr_t first_free_page = (used_end + page_size - 1) & ~(page_size - 1);
+
+    // End of the arena (already page-aligned from create)
+    uintptr_t arena_end = base_addr + arena->size;
+
+    if (first_free_page >= arena_end) {
+        return 0; // No full pages to return
+    }
+
+    size_t free_bytes = arena_end - first_free_page;
+    size_t pages_to_return = free_bytes / page_size;
+
+    if (pages_to_return == 0) return 0;
+
+    // Use madvise(MADV_DONTNEED) to tell the kernel these pages are no longer
+    // needed.  The kernel zeros the pages and may reclaim the physical frames.
+    // The virtual mapping remains valid — future accesses will fault in fresh pages.
+    int ret = madvise((void*)first_free_page, pages_to_return * page_size, MADV_DONTNEED);
+    if (ret != 0) {
+        return 0;
+    }
+
+    return pages_to_return;
+}
+
+// ---------------------------------------------------------------------------
+// Arena Query Functions
+// ---------------------------------------------------------------------------
+
+size_t nkit_arena_used(nkit_arena_t* arena) {
+    if (!arena) return 0;
+    return arena->used;
+}
+
+size_t nkit_arena_size(nkit_arena_t* arena) {
+    if (!arena) return 0;
+    return arena->size;
+}
+
+int nkit_arena_is_huge(nkit_arena_t* arena) {
+    if (!arena) return 0;
+    return arena->use_huge;
+}
+
