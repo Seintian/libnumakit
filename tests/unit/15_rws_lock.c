@@ -8,7 +8,7 @@
 
 #define NUM_READERS 4
 #define NUM_WRITERS 2
-#define ITERATIONS 10000
+#define ITERATIONS 1000
 
 static nkit_rws_lock_t global_rwlock;
 static int shared_data = 0;

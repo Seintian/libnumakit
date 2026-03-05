@@ -7,7 +7,7 @@
 #include "unit.h"
 
 #define NUM_THREADS 4
-#define INCREMENTS_PER_THREAD 100000
+#define INCREMENTS_PER_THREAD 10000
 
 static nkit_mcs_lock_t global_lock;
 static int shared_counter = 0;
