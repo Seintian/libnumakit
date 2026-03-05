@@ -20,6 +20,11 @@ int main(int argc, char *argv[]) {
         printf("  11_deque          - Test Chase-Lev deque (11)\n");
         printf("  12_skip_list      - Test NUMA-aware skip list (12)\n");
         printf("  13_mempool        - Test Advanced Memory Pool (13)\n");
+        printf("  14_mcs_lock       - Test MCS Lock (14)\n");
+        printf("  15_rws_lock       - Test RW Spinlock (15)\n");
+        printf("  16_ring_buffer    - Test Ring Buffer (16)\n");
+        printf("  17_messaging      - Test Messaging System (17)\n");
+        printf("  18_balancer       - Test Basic Balancer logic (18)\n");
         printf("  all               - Run all units sequentially\n");
         return 1;
     }
@@ -52,6 +57,16 @@ int main(int argc, char *argv[]) {
         return test_12_skip_list();
     } else if (strcmp(argv[1], "13_mempool") == 0) {
         return test_13_mempool();
+    } else if (strcmp(argv[1], "14_mcs_lock") == 0) {
+        return test_14_mcs_lock();
+    } else if (strcmp(argv[1], "15_rws_lock") == 0) {
+        return test_15_rws_lock();
+    } else if (strcmp(argv[1], "16_ring_buffer") == 0) {
+        return test_16_ring_buffer();
+    } else if (strcmp(argv[1], "17_messaging") == 0) {
+        return test_17_messaging();
+    } else if (strcmp(argv[1], "18_balancer") == 0) {
+        return test_18_balancer();
     } else if (strcmp(argv[1], "all") == 0) {
         printf(">>> RUNNING UNIT 00: SANITY CHECK <<<\n");
         test_00_sanity_check();
@@ -94,6 +109,21 @@ int main(int argc, char *argv[]) {
 
         printf("\n\n>>> RUNNING UNIT 13: ADVANCED MEMORY POOL <<<\n");
         test_13_mempool();
+
+        printf("\n\n>>> RUNNING UNIT 14: MCS LOCK <<<\n");
+        test_14_mcs_lock();
+
+        printf("\n\n>>> RUNNING UNIT 15: RW SPINLOCK <<<\n");
+        test_15_rws_lock();
+
+        printf("\n\n>>> RUNNING UNIT 16: RING BUFFER <<<\n");
+        test_16_ring_buffer();
+
+        printf("\n\n>>> RUNNING UNIT 17: MESSAGING <<<\n");
+        test_17_messaging();
+
+        printf("\n\n>>> RUNNING UNIT 18: BALANCER LOGIC <<<\n");
+        test_18_balancer();
         return 0;
     }
 

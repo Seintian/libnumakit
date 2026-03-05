@@ -15,5 +15,10 @@ int test_10_topology_query(void);
 int test_11_deque(void);
 int test_12_skip_list(void);
 int test_13_mempool(void);
+int test_14_mcs_lock(void);
+int test_15_rws_lock(void);
+int test_16_ring_buffer(void);
+int test_17_messaging(void);
+int test_18_balancer(void);
 
 #endif

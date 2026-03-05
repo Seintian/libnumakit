@@ -20,12 +20,12 @@ This document tracks the planned features and improvements for the `libnumakit` 
 
 ## 🛠️ Testing & Refinement
 
-- [ ] **Fill Missing Unit Tests**
-  - [ ] MCS Lock (`sync/mcs_lock.c`)
-  - [ ] RW Spinlock (`sync/rws_lock.c`)
-  - [ ] Ring Buffer (`structs/ring_buffer.c`)
-  - [ ] Messaging System (`sched/messaging.c`)
-  - [ ] Basic Balancer logic (`sched/balancer.c`)
+- [x] **Fill Missing Unit Tests**
+  - [x] MCS Lock (`sync/mcs_lock.c`)
+  - [x] RW Spinlock (`sync/rws_lock.c`)
+  - [x] Ring Buffer (`structs/ring_buffer.c`)
+  - [x] Messaging System (`sched/messaging.c`)
+  - [x] Basic Balancer logic (`sched/balancer.c`)
 
 - [ ] **Hardware Compatibility**
   - [ ] Test on ARM64 Graviton/Ampere systems.

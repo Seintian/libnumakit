@@ -3,7 +3,7 @@
 #include <numakit/memory.h>
 #include <numakit/topology.h>
 #include <numakit/sched.h>
-#include <numakit/numakit.h> // For nkit_init/context
+#include <numakit/numakit.h>
 #include "../internal.h"
 #include <stdlib.h>
 #include <string.h>
