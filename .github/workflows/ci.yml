@@ -30,7 +30,7 @@ jobs:
     - name: Run Tests
       run: |
         cd build
-        ctest --output-on-failure
+        ctest --output-on-failure --exclude-regex benchmarks
 
   # -----------------------------------------------------------------------------
   # Job 2: NUMA Environment (QEMU Emulation)
@@ -113,5 +113,5 @@ jobs:
     - name: Run Tests
       run: |
         cd build
-        ctest --output-on-failure
+        ctest --output-on-failure --exclude-regex benchmarks
 
