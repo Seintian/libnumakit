@@ -61,3 +61,57 @@ jobs:
       run: |
         chmod +x tests/qemu/run_numa_test.sh
         ./tests/qemu/run_numa_test.sh
+
+  # -----------------------------------------------------------------------------
+  # Job 3: NUMA Environment Without SLIT
+  # -----------------------------------------------------------------------------
+  test-noslit:
+    name: Test NUMA (No SLIT)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Dependencies (Host)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libnuma-dev libhwloc-dev ninja-build \
+          qemu-system-x86 qemu-utils cloud-image-utils
+
+    - name: Build (Host)
+      run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
+
+    - name: Compile
+      run: cmake --build build
+
+    - name: Run NUMA Verification (No SLIT)
+      run: |
+        touch build/qemu_noslit_flag
+        chmod +x tests/qemu/run_numa_test.sh
+        ./tests/qemu/run_numa_test.sh
+
+  # -----------------------------------------------------------------------------
+  # Job 4: ARM64 Native Environment
+  # -----------------------------------------------------------------------------
+  test-arm64:
+    name: Test ARM64 (Native)
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libnuma-dev libhwloc-dev ninja-build
+
+    - name: Configure & Build
+      run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
+
+    - name: Compile
+      run: cmake --build build
+
+    - name: Run Tests
+      run: |
+        cd build
+        ctest --output-on-failure
+

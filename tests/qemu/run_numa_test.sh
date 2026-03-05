@@ -65,6 +65,13 @@ write_files:
       
       export CTEST_OUTPUT_ON_FAILURE=1
       
+      if [ -f /mnt/qemu_noslit_flag ]; then
+        echo "[VM] Injecting no-SLIT mock..."
+        echo "int numa_distance(int node1, int node2) { return 0; }" > /mnt/mock_noslit.c
+        gcc -shared -fPIC -o /mnt/libmock_noslit.so /mnt/mock_noslit.c
+        export LD_PRELOAD=/mnt/libmock_noslit.so
+      fi
+      
       # Run Tests (Excluding slow benchmarks)
       echo "[VM] Running CTest..."
       ctest -V -E benchmarks

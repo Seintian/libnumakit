@@ -40,11 +40,13 @@ int nkit_topo_distance(int from_node, int to_node) {
 
     // Get latency from libnuma (if hwloc doesn't readily provide distance matrices without complex queries)
     if (g_nkit_ctx.numa_supported) {
-        return numa_distance(from_node, to_node);
-    } else {
-        // Fallback or UMA system
-        return (from_node == to_node) ? 10 : 20; 
+        int dist = numa_distance(from_node, to_node);
+        if (dist > 0) {
+            return dist;
+        }
     }
+    // Fallback or UMA system
+    return (from_node == to_node) ? 10 : 20; 
 }
 
 int nkit_topo_node_memory(int node_id, size_t *total_bytes, size_t *free_bytes) {

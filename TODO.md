@@ -27,9 +27,9 @@ This document tracks the planned features and improvements for the `libnumakit` 
   - [x] Messaging System (`sched/messaging.c`)
   - [x] Basic Balancer logic (`sched/balancer.c`)
 
-- [ ] **Hardware Compatibility**
-  - [ ] Test on ARM64 Graviton/Ampere systems.
-  - [ ] Verify behavior on systems without SLIT tables.
+- [x] **Hardware Compatibility**
+  - [x] Test on ARM64 Graviton/Ampere systems.
+  - [x] Verify behavior on systems without SLIT tables.
 
 ## 📖 Documentation & Examples
 
