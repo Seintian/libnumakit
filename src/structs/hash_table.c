@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <numa.h>
+#include <stdbool.h>
 
 // =============================================================================
 // Internal Definitions

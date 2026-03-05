@@ -136,8 +136,8 @@ static void *_ab_monitor(void *arg) {
             ioctl(fd_instr, PERF_EVENT_IOC_DISABLE, 0);
 
             long long count_miss = 0, count_instr = 0;
-            read(fd_miss, &count_miss, sizeof(long long));
-            read(fd_instr, &count_instr, sizeof(long long));
+            if (read(fd_miss, &count_miss, sizeof(long long)) < 0) count_miss = 0;
+            if (read(fd_instr, &count_instr, sizeof(long long)) < 0) count_instr = 0;
 
             close(fd_miss);
             close(fd_instr);
