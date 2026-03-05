@@ -10,6 +10,21 @@ extern "C" {
 #include <stdalign.h>
 
 /**
+ * @brief Portable CPU relax/pause instruction for spin loops.
+ * Prevents useless pipeline stalls and reduces power consumption.
+ */
+static inline void nkit_cpu_pause(void) {
+#if defined(__x86_64__) || defined(__i386__)
+    __builtin_ia32_pause();
+#elif defined(__aarch64__) || defined(__arm__)
+    __asm__ volatile("yield" ::: "memory");
+#else
+    /* Fallback for other architectures (e.g. RISC-V, POWER) */
+    __asm__ volatile("" ::: "memory");
+#endif
+}
+
+/**
  * @brief MCS Lock Node.
  * Allocating this on the *stack* of the waiting thread 
  * ensures the spinning happens on local cache lines.

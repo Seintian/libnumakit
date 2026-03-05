@@ -2,14 +2,7 @@
 #include <stdatomic.h>
 #include <stdint.h>
 
-// Helper for CPU relaxation
-#if defined(__x86_64__) || defined(_M_X64)
-    #define CPU_RELAX() __builtin_ia32_pause()
-#elif defined(__aarch64__)
-    #define CPU_RELAX() __asm__ __volatile__("yield")
-#else
-    #define CPU_RELAX() do { } while (0)
-#endif
+
 
 void nkit_ticket_init(nkit_ticket_lock_t* lock) {
     atomic_init(&lock->ticket, 0);
@@ -34,7 +27,7 @@ void nkit_ticket_lock(nkit_ticket_lock_t* lock) {
         // Proportional backoff: distance determines how many pauses
         uint32_t distance = my_ticket - current;
         for (uint32_t i = 0; i < distance; i++) {
-            CPU_RELAX();
+            nkit_cpu_pause();
         }
     }
 }

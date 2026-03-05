@@ -20,12 +20,7 @@ void nkit_mcs_lock(nkit_mcs_lock_t* lock, nkit_mcs_node_t* node) {
 
         // 4. Spin on OUR local variable until 'prev' unlocks us
         while (atomic_load(&node->locked)) {
-            // Hint to CPU that we are spinning (saves power/latency)
-            #if defined(__x86_64__) || defined(_M_X64)
-                __builtin_ia32_pause(); 
-            #elif defined(__aarch64__)
-                __asm__ __volatile__("yield");
-            #endif
+            nkit_cpu_pause();
         }
     }
 }
@@ -43,11 +38,7 @@ void nkit_mcs_unlock(nkit_mcs_lock_t* lock, nkit_mcs_node_t* node) {
         // Failure: Someone is currently adding themselves (step 2 above).
         // We must wait for them to finish linking 'next'.
         while (!node->next) {
-            #if defined(__x86_64__) || defined(_M_X64)
-                __builtin_ia32_pause(); 
-            #elif defined(__aarch64__)
-                __asm__ __volatile__("yield");
-            #endif
+            nkit_cpu_pause();
         }
     }
 

@@ -31,11 +31,7 @@ void *producer(void *arg) {
     for (size_t i = 0; i < ITERS; i++) {
         // Spin until space is available
         while (!nkit_ring_push(args->ring, (void *)(uintptr_t)i)) {
-    #if defined(__x86_64__) || defined(_M_X64)
-        __builtin_ia32_pause();
-    #else
-        sched_yield();
-    #endif
+            nkit_cpu_pause();
         }
     }
     return NULL;
@@ -60,11 +56,7 @@ void *consumer(void *arg) {
         }
         received++;
         } else {
-    #if defined(__x86_64__) || defined(_M_X64)
-        __builtin_ia32_pause();
-    #else
-        sched_yield();
-    #endif
+            nkit_cpu_pause();
         }
     }
     return NULL;

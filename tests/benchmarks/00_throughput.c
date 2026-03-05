@@ -100,7 +100,7 @@ static void* nkit_producer(__attribute__((unused)) void* arg) {
 
     for (size_t i = 0; i < NUM_MSGS; i++) {
         while (!nkit_ring_push(g_nkit_ring, (void*)(uintptr_t)i)) {
-            __builtin_ia32_pause();
+            nkit_cpu_pause();
         }
     }
     return NULL;
@@ -116,7 +116,7 @@ static void* nkit_consumer(__attribute__((unused)) void* arg) {
         if (nkit_ring_pop(g_nkit_ring, &data)) {
             received++;
         } else {
-            __builtin_ia32_pause();
+            nkit_cpu_pause();
         }
     }
     return NULL;

@@ -8,15 +8,6 @@
 #define RWS_READER_INCR    (1U << 2)
 #define RWS_READER_MASK    (~(RWS_WRITER_ACTIVE | RWS_WRITER_WAITING))
 
-// Helper for CPU relaxation
-#if defined(__x86_64__) || defined(_M_X64)
-    #define CPU_RELAX() __builtin_ia32_pause()
-#elif defined(__aarch64__)
-    #define CPU_RELAX() __asm__ __volatile__("yield")
-#else
-    #define CPU_RELAX() do { } while (0)
-#endif
-
 void nkit_rws_init(nkit_rws_lock_t* lock) {
     atomic_init(&lock->state, 0);
 }
@@ -28,7 +19,7 @@ void nkit_rws_read_lock(nkit_rws_lock_t* lock) {
         // 1. If writer is active OR waiting, we spin.
         // (This preference prevents writer starvation)
         if (state & (RWS_WRITER_ACTIVE | RWS_WRITER_WAITING)) {
-            CPU_RELAX();
+            nkit_cpu_pause();
             continue;
         }
 
@@ -67,7 +58,7 @@ void nkit_rws_write_lock(nkit_rws_lock_t* lock) {
                 return; // Acquired
             }
         }
-        CPU_RELAX();
+        nkit_cpu_pause();
     }
 }
 

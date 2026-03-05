@@ -54,11 +54,7 @@ struct nkit_pool_s {
 static inline void nkit_backoff(int* spin_count) {
     if (*spin_count < 2000) {
         // Phase 1: Hot spin (Ultra-low latency, low power)
-        #if defined(__x86_64__) || defined(_M_X64)
-            __builtin_ia32_pause();
-        #else
-            __asm__ volatile ("yield" ::: "memory"); // ARM equivalent
-        #endif
+        nkit_cpu_pause();
     } else if (*spin_count < 5000) {
         // Phase 2: Warm spin (Politely yield OS thread)
         sched_yield(); 
@@ -111,9 +107,7 @@ static void* _nkit_worker(void* arg) {
             task->func(task->arg);
 
             while (!nkit_ring_push(task->home_free_queue, task)) {
-                #if defined(__x86_64__) || defined(_M_X64)
-                    __builtin_ia32_pause();
-                #endif
+                nkit_cpu_pause();
             }
             continue;
         }
@@ -129,9 +123,7 @@ static void* _nkit_worker(void* arg) {
                     task->func(task->arg);
 
                     while (!nkit_ring_push(task->home_free_queue, task)) {
-                    #if defined(__x86_64__) || defined(_M_X64)
-                        __builtin_ia32_pause();
-                    #endif
+                        nkit_cpu_pause();
                     }
                     stole = 1;
                     break;

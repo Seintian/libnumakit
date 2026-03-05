@@ -99,12 +99,12 @@ static void* nkit_thread_a(__attribute__((unused)) void* arg) {
     for (long i = 0; i < NUM_ROUNDTRIPS; i++) {
         // 1. Send Ping (Cast long directly to pointer)
         while (!nkit_ring_push(g_ring_a_to_b, (void*)i)) {
-            __builtin_ia32_pause();
+            nkit_cpu_pause();
         }
 
         // 2. Wait for Pong
         while (!nkit_ring_pop(g_ring_b_to_a, &data)) {
-            __builtin_ia32_pause();
+            nkit_cpu_pause();
         }
 
         // VALIDATION:
@@ -125,12 +125,12 @@ static void* nkit_thread_b(__attribute__((unused)) void* arg) {
     for (long i = 0; i < NUM_ROUNDTRIPS; i++) {
         // 1. Wait for Ping
         while (!nkit_ring_pop(g_ring_a_to_b, &data)) {
-            __builtin_ia32_pause();
+            nkit_cpu_pause();
         }
 
         // 2. Send Pong (echo data back)
         while (!nkit_ring_push(g_ring_b_to_a, data)) {
-            __builtin_ia32_pause();
+            nkit_cpu_pause();
         }
     }
     return NULL;
