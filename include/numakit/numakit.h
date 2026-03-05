@@ -11,6 +11,7 @@ extern "C" {
 #include "topology.h"
 #include "structs/ring_buffer.h"
 #include "structs/hash_table.h"
+#include "structs/skip_list.h"
 
 // Versioning
 #define NKIT_VERSION_MAJOR 0

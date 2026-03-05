@@ -13,5 +13,6 @@ int test_08_auto_balancer(void);
 int test_09_hugepage_coalesce(void);
 int test_10_topology_query(void);
 int test_11_deque(void);
+int test_12_skip_list(void);
 
 #endif

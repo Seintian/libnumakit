@@ -4,12 +4,12 @@ This document tracks the planned features and improvements for the `libnumakit` 
 
 ## 🚀 Priority Features
 
-- [ ] **NUMA-Aware Work-Stealing Queue**
+- [x] **NUMA-Aware Work-Stealing Queue**
   - Lock-free deque for task stealing.
   - Topology-aware stealing: prefer local nodes before remote ones.
   - Performance-optimized for fork-join workloads.
 
-- [ ] **NUMA-Aware Skip List / Linked List**
+- [x] **NUMA-Aware Skip List / Linked List**
   - Sharded data structures where each shard is local to a NUMA node.
   - Minimal cross-node synchronization for global operations.
 
