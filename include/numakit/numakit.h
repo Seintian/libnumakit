@@ -8,6 +8,7 @@ extern "C" {
 #include "memory.h"
 #include "sched.h"
 #include "sync.h"
+#include "topology.h"
 #include "structs/ring_buffer.h"
 #include "structs/hash_table.h"
 

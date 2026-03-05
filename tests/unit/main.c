@@ -16,6 +16,7 @@ int main(int argc, char *argv[]) {
         printf("  07_slab_allocator - Test slab allocator (07)\n");
         printf("  08_auto_balancer  - Test auto-balancer (08)\n");
         printf("  09_hugepage_coal  - Test hugepage coalescing (09)\n");
+        printf("  10_topology_query - Test topology query API (10)\n");
         printf("  all               - Run all units sequentially\n");
         return 1;
     }
@@ -40,6 +41,8 @@ int main(int argc, char *argv[]) {
         return test_08_auto_balancer();
     } else if (strcmp(argv[1], "09_hugepage_coal") == 0) {
         return test_09_hugepage_coalesce();
+    } else if (strcmp(argv[1], "10_topology_query") == 0) {
+        return test_10_topology_query();
     } else if (strcmp(argv[1], "all") == 0) {
         printf(">>> RUNNING UNIT 00: SANITY CHECK <<<\n");
         test_00_sanity_check();
@@ -70,6 +73,9 @@ int main(int argc, char *argv[]) {
 
         printf("\n\n>>> RUNNING UNIT 09: HUGEPAGE COALESCING <<<\n");
         test_09_hugepage_coalesce();
+
+        printf("\n\n>>> RUNNING UNIT 10: TOPOLOGY QUERY <<<\n");
+        test_10_topology_query();
         return 0;
     }
 
