@@ -5,6 +5,7 @@
 #include <stdatomic.h>
 #include <stdint.h>
 #include <string.h>
+#include <numa.h>
 
 // =============================================================================
 // Internal Definitions
@@ -29,6 +30,7 @@ struct nkit_hash_s {
     size_t count;               // Live entry count
     nkit_arena_t* _arena;       // NUMA-pinned backing memory
     nkit_mcs_lock_t lock;       // Thread-safe access
+    int node_id;                // Target NUMA node
 };
 
 // Maximum load factor: 75% (3/4)
@@ -86,35 +88,38 @@ static inline int _keys_equal(const void* a, size_t a_len,
 // =============================================================================
 
 nkit_hash_t* nkit_hash_create(int node_id, size_t capacity) {
+    if (numa_available() < 0) return NULL;
+
     // Round up to power of 2, enforce minimum
     if (capacity < NKIT_HASH_MIN_CAPACITY) capacity = NKIT_HASH_MIN_CAPACITY;
     capacity = _next_power_of_2(capacity);
 
-    // Calculate total allocation size
-    size_t struct_sz  = sizeof(nkit_hash_t);
+    // Allocate the handle struct separately to keep it stable during resizing
+    nkit_hash_t* ht = (nkit_hash_t*)numa_alloc_onnode(sizeof(nkit_hash_t), node_id);
+    if (!ht) return NULL;
+
     size_t buckets_sz = sizeof(nkit_bucket_t) * capacity;
-    size_t total_sz   = struct_sz + buckets_sz;
-
-    // Create a NUMA-pinned arena for the entire table
-    nkit_arena_t* arena = nkit_arena_create(node_id, total_sz);
-    if (!arena) return NULL;
-
-    void* block = nkit_arena_alloc(arena, total_sz);
-    if (!block) {
-        nkit_arena_destroy(arena);
+    nkit_arena_t* arena = nkit_arena_create(node_id, buckets_sz);
+    if (!arena) {
+        numa_free(ht, sizeof(nkit_hash_t));
         return NULL;
     }
 
-    // Zero the entire block (sets all bucket hashes to 0 = empty)
-    memset(block, 0, total_sz);
+    nkit_bucket_t* buckets = (nkit_bucket_t*)nkit_arena_alloc(arena, buckets_sz);
+    if (!buckets) {
+        nkit_arena_destroy(arena);
+        numa_free(ht, sizeof(nkit_hash_t));
+        return NULL;
+    }
 
-    // Layout: [ nkit_hash_t | nkit_bucket_t[capacity] ]
-    nkit_hash_t* ht   = (nkit_hash_t*)block;
-    ht->buckets       = (nkit_bucket_t*)((char*)block + struct_sz);
-    ht->capacity      = capacity;
-    ht->mask          = capacity - 1;
-    ht->count         = 0;
-    ht->_arena        = arena;
+    memset(buckets, 0, buckets_sz);
+
+    ht->buckets   = buckets;
+    ht->capacity  = capacity;
+    ht->mask      = capacity - 1;
+    ht->count     = 0;
+    ht->_arena    = arena;
+    ht->node_id   = node_id;
 
     nkit_mcs_init(&ht->lock);
 
@@ -123,22 +128,16 @@ nkit_hash_t* nkit_hash_create(int node_id, size_t capacity) {
 
 void nkit_hash_destroy(nkit_hash_t* ht) {
     if (!ht) return;
-    // Destroying the arena releases all memory (struct + buckets)
     nkit_arena_destroy(ht->_arena);
+    numa_free(ht, sizeof(nkit_hash_t));
 }
 
-int nkit_hash_put(nkit_hash_t* ht, const void* key, size_t key_len,
-                  void* value) {
-    if (!ht || !key || key_len == 0) return -1;
-
-    nkit_mcs_node_t node;
-    nkit_mcs_lock(&ht->lock, &node);
-
-    // Check load factor BEFORE insert (allow overwrite even if full)
-    uint64_t hash = _nkit_fnv1a(key, key_len);
+/**
+ * @brief Internal non-locking put for re-hashing or initial inserts.
+ */
+static int _nkit_hash_put_internal(nkit_hash_t* ht, uint64_t hash, const void* key, 
+                                 size_t key_len, void* value, bool is_rehash) {
     size_t slot = (size_t)(hash & ht->mask);
-
-    // Robin Hood insertion
     const void* cur_key   = key;
     size_t cur_key_len    = key_len;
     void* cur_value       = value;
@@ -148,38 +147,23 @@ int nkit_hash_put(nkit_hash_t* ht, const void* key, size_t key_len,
     for (;;) {
         nkit_bucket_t* b = &ht->buckets[slot];
 
-        // Empty slot: place the entry here
         if (b->hash == 0) {
-            // Check load factor before adding a NEW entry
-            if (ht->count * NKIT_HASH_MAX_LOAD_DEN >=
-                ht->capacity * NKIT_HASH_MAX_LOAD_NUM) {
-                nkit_mcs_unlock(&ht->lock, &node);
-                return -1; // Table full
-            }
-
             b->hash    = cur_hash;
             b->key     = cur_key;
             b->key_len = cur_key_len;
             b->value   = cur_value;
-            ht->count++;
-
-            nkit_mcs_unlock(&ht->lock, &node);
+            if (!is_rehash) ht->count++;
             return 0;
         }
 
-        // Key exists: overwrite value
-        if (b->hash == cur_hash &&
+        if (!is_rehash && b->hash == cur_hash &&
             _keys_equal(b->key, b->key_len, cur_key, cur_key_len)) {
             b->value = cur_value;
-
-            nkit_mcs_unlock(&ht->lock, &node);
             return 0;
         }
 
-        // Robin Hood: steal from the rich
         size_t existing_dist = _probe_distance(b->hash, slot, ht->mask);
         if (dist > existing_dist) {
-            // Swap current entry with the resident
             uint64_t tmp_hash       = b->hash;
             const void* tmp_key     = b->key;
             size_t tmp_key_len      = b->key_len;
@@ -201,6 +185,63 @@ int nkit_hash_put(nkit_hash_t* ht, const void* key, size_t key_len,
         slot = (slot + 1) & ht->mask;
         dist++;
     }
+}
+
+/**
+ * @brief Resize the hash table by doubling its capacity.
+ */
+static void _nkit_hash_resize(nkit_hash_t* ht) {
+    size_t old_capacity = ht->capacity;
+    nkit_bucket_t* old_buckets = ht->buckets;
+    nkit_arena_t* old_arena = ht->_arena;
+
+    size_t new_capacity = old_capacity * 2;
+    size_t new_buckets_sz = sizeof(nkit_bucket_t) * new_capacity;
+
+    nkit_arena_t* new_arena = nkit_arena_create(ht->node_id, new_buckets_sz);
+    if (!new_arena) return;
+
+    nkit_bucket_t* new_buckets = (nkit_bucket_t*)nkit_arena_alloc(new_arena, new_buckets_sz);
+    if (!new_buckets) {
+        nkit_arena_destroy(new_arena);
+        return;
+    }
+    memset(new_buckets, 0, new_buckets_sz);
+
+    // Temporarily point to the new buckets to use _nkit_hash_put_internal correctly
+    ht->buckets = new_buckets;
+    ht->capacity = new_capacity;
+    ht->mask = new_capacity - 1;
+
+    for (size_t i = 0; i < old_capacity; i++) {
+        if (old_buckets[i].hash != 0) {
+            _nkit_hash_put_internal(ht, old_buckets[i].hash, old_buckets[i].key, 
+                                   old_buckets[i].key_len, old_buckets[i].value, true);
+        }
+    }
+
+    ht->_arena = new_arena;
+    nkit_arena_destroy(old_arena); // Frees old_buckets
+}
+
+int nkit_hash_put(nkit_hash_t* ht, const void* key, size_t key_len,
+                  void* value) {
+    if (!ht || !key || key_len == 0) return -1;
+
+    nkit_mcs_node_t node;
+    nkit_mcs_lock(&ht->lock, &node);
+
+    uint64_t hash = _nkit_fnv1a(key, key_len);
+    
+    // Check load factor before insert
+    if (ht->count * NKIT_HASH_MAX_LOAD_DEN >= ht->capacity * NKIT_HASH_MAX_LOAD_NUM) {
+        _nkit_hash_resize(ht);
+    }
+
+    int ret = _nkit_hash_put_internal(ht, hash, key, key_len, value, false);
+
+    nkit_mcs_unlock(&ht->lock, &node);
+    return ret;
 }
 
 void* nkit_hash_get(nkit_hash_t* ht, const void* key, size_t key_len) {

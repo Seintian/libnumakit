@@ -205,6 +205,33 @@ static void test_multithread(void) {
     printf("  [Check] Multi-thread Contention: OK\n");
 }
 
+static void test_dynamic_resizing(void) {
+    // Start with minimal capacity
+    nkit_hash_t* ht = nkit_hash_create(0, 16);
+    assert(ht != NULL);
+
+    int values[512];
+    char keys[512][16];
+
+    for (int i = 0; i < 512; i++) {
+        snprintf(keys[i], sizeof(keys[i]), "res_%d", i);
+        values[i] = i;
+        assert(nkit_hash_put(ht, keys[i], strlen(keys[i]), &values[i]) == 0);
+    }
+
+    assert(nkit_hash_count(ht) == 512);
+
+    // Verify all keys are still there after multiple resizes
+    for (int i = 0; i < 512; i++) {
+        void* v = nkit_hash_get(ht, keys[i], strlen(keys[i]));
+        assert(v != NULL);
+        assert(*(int*)v == i);
+    }
+
+    nkit_hash_destroy(ht);
+    printf("  [Check] Dynamic Resizing: OK\n");
+}
+
 // ============================================================================
 // Entry Point
 // ============================================================================
@@ -217,6 +244,7 @@ int test_06_hash_table(void) {
     test_remove();
     test_collision_stress();
     test_multithread();
+    test_dynamic_resizing();
 
     printf("[UNIT] Hash Table API Test Passed\n");
     return 0;

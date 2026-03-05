@@ -11,6 +11,7 @@
 
 #include <numakit/sched.h>
 #include <numakit/numakit.h>
+#include <numakit/structs/deque.h>
 
 // -----------------------------------------------------------------------------
 // Internal Data Structures
@@ -28,7 +29,7 @@ struct nkit_pool_s;
 typedef struct {
     int node_id;
     uint32_t capacity;           // Track capacity so we can numa_free properly
-    nkit_ring_t* task_queue;     // Tasks waiting to be executed
+    nkit_deque_t* task_queue;    // Tasks waiting to be executed (Work-stealing deque)
     nkit_ring_t* free_queue;     // Pointers to unused nkit_task_t structs
     nkit_task_t* task_array;     // The physical memory for the task structs
 
@@ -103,8 +104,8 @@ static void* _nkit_worker(void* arg) {
     while (!global_pool->stop) {
         void* task_ptr = NULL;
 
-        // 1. Try Local Queue First
-        if (nkit_ring_pop(my_pool->task_queue, &task_ptr)) {
+        // 1. Try Local Queue First (LIFO pop)
+        if (nkit_deque_pop(my_pool->task_queue, &task_ptr)) {
             idle_spins = 0;
             nkit_task_t* task = (nkit_task_t*)task_ptr;
             task->func(task->arg);
@@ -122,7 +123,7 @@ static void* _nkit_worker(void* arg) {
         if (global_pool->num_nodes > 1 && my_pool->steal_order != NULL) {
             for (int i = 0; i < global_pool->num_nodes - 1; i++) {
                 int target_node = my_pool->steal_order[i];
-                if (nkit_ring_pop(global_pool->node_pools[target_node].task_queue, &task_ptr)) {
+                if (nkit_deque_steal(global_pool->node_pools[target_node].task_queue, &task_ptr)) {
                     idle_spins = 0;
                     nkit_task_t* task = (nkit_task_t*)task_ptr;
                     task->func(task->arg);
@@ -177,7 +178,7 @@ nkit_pool_t* nkit_pool_create(void) {
         np->global_pool = pool; 
         np->capacity = ring_capacity;
 
-        np->task_queue = nkit_ring_create(i, ring_capacity);
+        np->task_queue = nkit_deque_create(i, ring_capacity);
         np->free_queue = nkit_ring_create(i, ring_capacity);
 
         // Allocate the physical task structs directly on this NUMA node
@@ -240,7 +241,7 @@ int nkit_pool_submit_to_node(nkit_pool_t* pool, int target_node, void (*func)(vo
     task->arg = arg;
 
     int submit_spins = 0;
-    while (!nkit_ring_push(np->task_queue, task)) {
+    while (!nkit_deque_push(np->task_queue, task)) {
         nkit_backoff(&submit_spins);
     }
     return 0;
@@ -272,7 +273,7 @@ void nkit_pool_destroy(nkit_pool_t* pool) {
         }
 
         // Cleanup Queues
-        if (np->task_queue) nkit_ring_free(np->task_queue);
+        if (np->task_queue) nkit_deque_destroy(np->task_queue);
         if (np->free_queue) nkit_ring_free(np->free_queue);
 
         // Cleanup memory using numa_free
