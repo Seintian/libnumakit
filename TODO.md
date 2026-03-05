@@ -33,15 +33,15 @@ This document tracks the planned features and improvements for the `libnumakit` 
 
 ## 📖 Documentation & Examples
 
-- [ ] **Populate Design Docs**
-  - [ ] `docs/design/memory_layout.md`
-  - [ ] `docs/design/locking_protocol.md`
-  - [ ] `docs/design/topology_mapping.md`
+- [x] **Populate Design Docs**
+  - [x] `docs/design/memory_layout.md`
+  - [x] `docs/design/locking_protocol.md`
+  - [x] `docs/design/topology_mapping.md`
 
-- [ ] **Complete Examples**
-  - [ ] `examples/01_hello_numa.c`
-  - [ ] `examples/02_arena_alloc.c`
-  - [ ] Add a new `examples/03_topology_query.c` demonstration.
+- [x] **Complete Examples**
+  - [x] `examples/01_hello_numa.c`
+  - [x] `examples/02_arena_alloc.c`
+  - [x] Add a new `examples/03_topology_query.c` demonstration.
 
 ## 📈 Optimization
 

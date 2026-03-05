@@ -127,3 +127,8 @@ if(BUILD_TESTS OR BUILD_BENCHMARKS)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+option(BUILD_EXAMPLES "Build examples" ON)
+if(BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
