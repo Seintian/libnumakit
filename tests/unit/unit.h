@@ -14,5 +14,6 @@ int test_09_hugepage_coalesce(void);
 int test_10_topology_query(void);
 int test_11_deque(void);
 int test_12_skip_list(void);
+int test_13_mempool(void);
 
 #endif

@@ -13,7 +13,7 @@ This document tracks the planned features and improvements for the `libnumakit` 
   - Sharded data structures where each shard is local to a NUMA node.
   - Minimal cross-node synchronization for global operations.
 
-- [ ] **Advanced Memory Pool**
+- [x] **Advanced Memory Pool**
   - General-purpose object pool with per-node free-lists.
   - Support for multiple size classes.
   - Lock-free allocation from thread-local or node-local pools.

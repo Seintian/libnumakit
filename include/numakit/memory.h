@@ -159,6 +159,59 @@ size_t nkit_arena_size(nkit_arena_t *arena);
  */
 int nkit_arena_is_huge(nkit_arena_t *arena);
 
+/**
+ * @brief Opaque handle for a NUMA-aware multi-size-class memory pool.
+ *
+ * Provides a general-purpose allocator that leverages per-node slab
+ * allocators for multiple size classes (e.g., 32B up to 16KB).
+ * Allocations are automatically serviced from memory local to the
+ * calling thread's NUMA node.
+ */
+typedef struct nkit_mempool_s nkit_mempool_t;
+
+/**
+ * @brief Create a new global NUMA-aware memory pool.
+ *
+ * Discovers the system topology and initializes required slabs
+ * internally across all NUMA nodes.
+ *
+ * @return Pointer to the new memory pool, or NULL on failure.
+ */
+nkit_mempool_t* nkit_mempool_create(void);
+
+/**
+ * @brief Allocate memory from the memory pool.
+ *
+ * Automatically selects a local slab based on the current NUMA node
+ * and requested size. Uses an O(1) lock-free allocation if available.
+ *
+ * @param pool The memory pool handle.
+ * @param size Bytes to allocate.
+ * @return Pointer to the allocated memory, or NULL if out of memory
+ *         or the size exceeds the maximum supported size class.
+ */
+void* nkit_mempool_alloc(nkit_mempool_t* pool, size_t size);
+
+/**
+ * @brief Return memory to the memory pool.
+ *
+ * The memory block must have been previously allocated by `nkit_mempool_alloc`
+ * from the SAME pool. Deallocation is O(1) lock-free.
+ *
+ * @param pool The memory pool handle.
+ * @param ptr Pointer previously returned by `nkit_mempool_alloc`.
+ */
+void nkit_mempool_free(nkit_mempool_t* pool, void* ptr);
+
+/**
+ * @brief Destroy the memory pool and release all underlying memory.
+ *
+ * Any outstanding allocations are invalidated.
+ *
+ * @param pool The memory pool handle.
+ */
+void nkit_mempool_destroy(nkit_mempool_t* pool);
+
 #ifdef __cplusplus
 }
 #endif

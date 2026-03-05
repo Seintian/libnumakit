@@ -19,6 +19,7 @@ int main(int argc, char *argv[]) {
         printf("  10_topology_query - Test topology query API (10)\n");
         printf("  11_deque          - Test Chase-Lev deque (11)\n");
         printf("  12_skip_list      - Test NUMA-aware skip list (12)\n");
+        printf("  13_mempool        - Test Advanced Memory Pool (13)\n");
         printf("  all               - Run all units sequentially\n");
         return 1;
     }
@@ -49,6 +50,8 @@ int main(int argc, char *argv[]) {
         return test_11_deque();
     } else if (strcmp(argv[1], "12_skip_list") == 0) {
         return test_12_skip_list();
+    } else if (strcmp(argv[1], "13_mempool") == 0) {
+        return test_13_mempool();
     } else if (strcmp(argv[1], "all") == 0) {
         printf(">>> RUNNING UNIT 00: SANITY CHECK <<<\n");
         test_00_sanity_check();
@@ -88,6 +91,9 @@ int main(int argc, char *argv[]) {
 
         printf("\n\n>>> RUNNING UNIT 12: SKIP LIST <<<\n");
         test_12_skip_list();
+
+        printf("\n\n>>> RUNNING UNIT 13: ADVANCED MEMORY POOL <<<\n");
+        test_13_mempool();
         return 0;
     }
 
