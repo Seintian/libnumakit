@@ -1,0 +1,39 @@
+name: Debug ARM64 Topology
+
+on:
+  push:
+    branches: [ "dev" ]
+  workflow_dispatch:
+
+jobs:
+  check-topology:
+    name: Inspect ARM64 Hardware
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y numactl hwloc
+
+    - name: System Identification
+      run: |
+        echo "--- Kernel & OS ---"
+        uname -a
+        lsb_release -a
+
+    - name: CPU & NUMA Topology
+      run: |
+        echo "--- LSCPU ---"
+        lscpu
+        echo "--- NUMACTL ---"
+        numactl --hardware
+        echo "--- NUMACTL DISTANCES ---"
+        numactl --show
+
+    - name: HWLOC Visual Map
+      run: |
+        echo "--- HWLOC (Console) ---"
+        # --of console gives a text representation of the tree
+        hwloc-ls --of console
