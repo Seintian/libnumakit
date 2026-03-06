@@ -17,11 +17,14 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y numactl hwloc
 
-    - name: System Identification
+    - name: System Identification & KVM Check
       run: |
         echo "--- Kernel & OS ---"
         uname -a
         lsb_release -a
+        echo "--- KVM Check ---"
+        [ -e /dev/kvm ] && echo "KVM IS AVAILABLE" || echo "KVM IS NOT AVAILABLE"
+        ls -l /dev/kvm || true
 
     - name: CPU & NUMA Topology
       run: |
