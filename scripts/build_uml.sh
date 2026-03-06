@@ -5,23 +5,13 @@ ARCH=$1
 KERNEL_VERSION="6.13.5"
 KERNEL_DIR="linux-$KERNEL_VERSION"
 
-if [ -z "$ARCH" ]; then
-    echo "Usage: $0 <x86_64|arm64>"
+if [ -z "$ARCH" ] || [ "$ARCH" != "x86_64" ]; then
+    echo "Usage: $0 x86_64"
+    echo "Note: ARM64 UML is not supported in mainline kernel yet."
     exit 1
 fi
 
-# Map GHA arch to kernel ARCH
-KARCH="um"
-if [ "$ARCH" == "x86_64" ]; then
-    SUBARCH="x86_64"
-elif [ "$ARCH" == "arm64" ]; then
-    SUBARCH="arm64"
-else
-    echo "Unsupported arch: $ARCH"
-    exit 1
-fi
-
-echo "--- Building UML Kernel for $ARCH ($SUBARCH) ---"
+echo "--- Building UML Kernel for x86_64 ---"
 
 # 1. Download Kernel Source if not present
 if [ ! -d "$KERNEL_DIR" ]; then
@@ -32,7 +22,7 @@ fi
 cd $KERNEL_DIR
 
 # 2. Create Minimal Config
-make ARCH=$KARCH SUBARCH=$SUBARCH defconfig
+make ARCH=um SUBARCH=x86_64 defconfig
 
 # Enable NUMA and NUMA Emulation
 cat >> .config <<EOF
@@ -45,11 +35,10 @@ EOF
 echo "CONFIG_HOSTFS=y" >> .config
 
 # 3. Build Kernel
-# We use a limited number of jobs to avoid OOM on GHA
-make ARCH=$KARCH SUBARCH=$SUBARCH -j$(nproc) vmlinux
+make ARCH=um SUBARCH=x86_64 -j$(nproc) vmlinux
 
 # 4. Copy binary to workspace
-cp vmlinux ../vmlinux-$ARCH
+cp vmlinux ../vmlinux-x86_64
 cd ..
 
-echo "--- UML Kernel Build Complete: vmlinux-$ARCH ---"
+echo "--- UML Kernel Build Complete: vmlinux-x86_64 ---"

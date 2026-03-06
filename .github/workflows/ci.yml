@@ -76,37 +76,3 @@ jobs:
       run: |
         chmod +x scripts/run_uml.sh
         ./scripts/run_uml.sh x86_64
-
-  # -----------------------------------------------------------------------------
-  # Job 4: NUMA Environment (UML ARM64)
-  # -----------------------------------------------------------------------------
-  test-numa-uml-arm64:
-    name: Test NUMA (UML ARM64)
-    runs-on: ubuntu-24.04-arm
-    steps:
-    - uses: actions/checkout@v4
-    - name: Install Host Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          libnuma-dev libhwloc-dev ninja-build \
-          build-essential flex bison bc libelf-dev libssl-dev
-    - name: Build LibNumaKit (Host)
-      run: |
-        cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
-        cmake --build build
-    - name: Cache UML Kernel
-      id: cache-uml
-      uses: actions/cache@v4
-      with:
-        path: vmlinux-arm64
-        key: uml-kernel-arm64-v1
-    - name: Build UML Kernel
-      if: steps.cache-uml.outputs.cache-hit != 'true'
-      run: |
-        chmod +x scripts/build_uml.sh
-        ./scripts/build_uml.sh arm64
-    - name: Run NUMA Tests (UML)
-      run: |
-        chmod +x scripts/run_uml.sh
-        ./scripts/run_uml.sh arm64
